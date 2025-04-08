@@ -1,0 +1,46 @@
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pdb
+
+# Cython build
+*.c
+*.so
+
+# Unit test / coverage
+*.cover
+.coverage
+coverage.xml
+htmlcov/
+.tox/
+.nox/
+.pytest_cache/
+
+# VSCode / PyCharm
+.vscode/
+.idea/
+
+# 환경 설정 파일
+*.env
+.env.*
+!.env.sample  # 샘플만 허용
+local.py
+
+# 가상환경
+venv/
+.venv/
+
+# OS / 시스템 파일
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 로그 파일
+*.log
+
+# MyPy / Pylint / 기타 캐시
+.mypy_cache/
+.pyre/
+.pytype/
+
