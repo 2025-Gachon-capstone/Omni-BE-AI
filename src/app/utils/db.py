@@ -11,7 +11,6 @@ def connect_db():
             charset='utf8mb4'
         )
         if connection.is_connected():
-            print("데이터베이스 연결 성공")
             return connection
         
     except Error as e:
