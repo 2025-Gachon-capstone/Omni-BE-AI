@@ -1,7 +1,6 @@
 import os
 import json
 import datetime
-import google.generativeai as genai
 import pytz
 
 from ..utils.db import connect_db
