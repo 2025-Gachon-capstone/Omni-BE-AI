@@ -13,7 +13,7 @@ RUN pip install --upgrade pip && \
 FROM python:3.11-slim
 
 # 환경 변수 설정
-## 로그 툴력 속도
+## 로그 출력 속도
 ENV PYTHONUNBUFFERED=1
 ENV PROFILE=${PROFILE}
 ENV TZ=Asia/Seoul
@@ -31,4 +31,4 @@ COPY . .
 EXPOSE 5000
 
 # 실행 명령 (gunicorn으로 실행, run.py 기준)
-CMD ["sh", "-c", "gunicorn run:app --bind 0.0.0.0:5000"]
+CMD ["sh", "-c", "gunicorn src.app.run:app --bind 0.0.0.0:5000"]
