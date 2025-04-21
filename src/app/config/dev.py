@@ -1,7 +1,6 @@
 import os
 
 DEBUG = os.getenv("DEBUG", "False") == "True"
-DATABASE_URL = os.getenv("DB_URL")
 
 DB_HOST = os.getenv("DB_HOST")  
 DB_PORT = os.getenv("DB_PORT")           
