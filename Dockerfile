@@ -13,9 +13,9 @@ RUN pip install --upgrade pip && \
 FROM python:3.11-slim
 
 # 환경 변수 설정
-## 로그 툴력 속도
+## 로그 출력 속도
 ENV PYTHONUNBUFFERED=1
-#ENV PROFILE=${PROFILE}
+ENV PROFILE=${PROFILE}
 ENV TZ=Asia/Seoul
 
 # 작업 디렉토리 설정
