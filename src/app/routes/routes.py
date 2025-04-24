@@ -129,7 +129,7 @@ def get_chat_room():
 # 채팅 메시지 조회
 @api_blueprints.route('/benefits/<int:benefitId>/messages', methods=['GET'])
 @swag_from({
-    'tags': ['Chat'], # 태그 추가
+    'tags': ['Chat'], 
     'summary': '채팅 메시지 목록 조회',
     'description': '특정 혜택 ID에 대한 채팅 메시지 목록을 페이지네이션하여 조회합니다.',
     'parameters': [
@@ -151,7 +151,7 @@ def get_chat_room():
             'name': 'size',
             'in': 'query',
             'type': 'integer',
-            'default': 30, # 기본값 30으로 수정
+            'default': 30, 
             'description': '페이지당 메시지 수'
         }
     ],
@@ -215,7 +215,7 @@ def get_chat_message(benefitId):
 # 채팅 입력
 @api_blueprints.route("/benefits/<int:benefitId>/chat", methods=["POST"])
 @swag_from({
-    'tags': ['Chat'], # 태그 추가
+    'tags': ['Chat'], 
     'summary': '채팅 메시지 전송',
     'description': '사용자 메시지를 받아 AI 응답을 생성하고 저장합니다.',
     'parameters': [
@@ -253,7 +253,7 @@ def get_chat_message(benefitId):
                     'code': {'type': 'string', 'example': 'FLASK-201'},
                     'message': {'type': 'string', 'example': 'AI 응답 생성 및 저장 성공'},
                     'timestamp': {'type': 'string', 'format': 'date-time'},
-                    'userMessageId': {'type': 'string', 'example': 'msg-005'}, # 3자리 포맷팅 반영
+                    'userMessageId': {'type': 'string', 'example': 'msg-005'}, 
                     'result': {
                         'type': 'object',
                         'properties': {
@@ -305,13 +305,12 @@ def get_chat_message(benefitId):
 })
 def post_chat_message(benefitId):
     data = request.get_json()
-    # user_message 유효성 검사 강화 (None 이거나 빈 문자열)
     if not data or 'user_message' not in data or not data['user_message']:
         error_response = {
             "isSuccess": False,
             "code": "REQ-400",
             "message": "user_message가 요청 본문에 포함되어야 합니다.",
-            "timestamp": datetime.datetime.now(kst).strftime("%Y-%m-%d %H:%M:%S") # 시간대 적용
+            "timestamp": datetime.datetime.now(kst).strftime("%Y-%m-%d %H:%M:%S") # KTC 사용
         }
         # 상태 코드 400 반환
         return make_response(json.dumps(error_response, ensure_ascii=False), 400)
