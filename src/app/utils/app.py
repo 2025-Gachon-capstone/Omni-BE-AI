@@ -4,6 +4,10 @@ from flasgger import Swagger
 from ..routes.routes import api_blueprints
 
 from ..config import config  # 이 시점에 config.{PROFILE}.py가 로딩됨
+print("[DEBUG] JSON_ROUTE =", config.SWAGGER_SPECS_JSON_ROUTE)
+
+print("[DEBUG] SPECS_ROUTE =", config.SWAGGER_SPECS_ROUTE)
+
 
 def create_app():
     app = Flask(__name__)
@@ -26,14 +30,8 @@ def create_app():
          "headers": [],
          "specs": [
              {
-                 "endpoint": 'omni_flask_ai_spec',
-                "route": config.SWAGGER_SPECS_JSON_ROUTE,
-                 "rule_filter": lambda rule: True,
-                 "model_filter": lambda tag: True,
-             },
-             {
-                 "endpoint": 'ai_apispec',
-                 "route": config.SWAGGER_SPECS_ROUTE,
+                 "endpoint": 'flask_spec',
+                 "route": config.SWAGGER_SPECS_JSON_ROUTE,
                  "rule_filter": lambda rule: True,
                  "model_filter": lambda tag: True,
              }
