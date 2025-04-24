@@ -11,7 +11,7 @@ def _ts():
     # 연, 월, 일, 시간, 분, 초 포맷
     return now_kst.strftime("%Y-%m-%d %H:%M:%S")
 
-def get_chat_message(benefitId, page, size=30):
+def get_chat_message(benefitId, page, size=30) -> tuple[str, int]:
     connection = connect_db()
     if connection is None:
         # DB 연결 실패
@@ -21,9 +21,11 @@ def get_chat_message(benefitId, page, size=30):
             "message": "데이터베이스 연결 실패",
             "timestamp": _ts()
         }
-        return json.dumps(error_response, ensure_ascii=False, indent=2)
+        # 상태 코드 500 반환 (튜플 형태)
+        return json.dumps(error_response, ensure_ascii=False, indent=2), 500
     
     messages = []
+    cursor = None # cursor 초기화
     try:
         cursor = connection.cursor(dictionary=True)
         
@@ -56,7 +58,8 @@ def get_chat_message(benefitId, page, size=30):
             }
         }
 
-        return json.dumps(body, ensure_ascii=False, indent=2, default=str)
+        # 상태 코드 200 반환 (튜플 형태)
+        return json.dumps(body, ensure_ascii=False, indent=2, default=str), 200
     
     # DB 조회 실패
     except Exception as e:
@@ -66,7 +69,8 @@ def get_chat_message(benefitId, page, size=30):
             "message": str(e),
             "timestamp": _ts()
         }
-        return json.dumps(error_response, ensure_ascii=False, indent=2)
+        # 상태 코드 500 반환 (튜플 형태)
+        return json.dumps(error_response, ensure_ascii=False, indent=2), 500
     
     finally:
         if connection and connection.is_connected():
