@@ -10,13 +10,13 @@ from ..services.getChatMessage import get_chat_message as get_chat_message_servi
 from ..services.postChatMessage import post_chat_message as post_chat_message_service
 
 
-api_blueprints = Blueprint("api", __name__, url_prefix="/flask/v1")
+api_blueprints = Blueprint("api", __name__)
 
 # 시간대 설정 (오류 응답 생성 시 사용)
 kst = pytz.timezone('Asia/Seoul')
 
 # API 테스트
-@api_blueprints.route("/test", methods=["GET"])
+@api_blueprints.route("/flask/v1/test", methods=["GET"])
 @swag_from({
     'tags': ['Test'], # 태그 추가
     'summary': 'API 경로 테스트',
@@ -44,7 +44,7 @@ def test():
         return response, 200
 
 # 채팅방 조회
-@api_blueprints.route("/benefits", methods=["GET"])
+@api_blueprints.route("/flask/v1/benefits", methods=["GET"])
 @swag_from({
     'tags': ['Chat'], # 태그 추가
     'summary': '채팅방 목록 조회',
@@ -127,7 +127,7 @@ def get_chat_room():
     return response, status_code
 
 # 채팅 메시지 조회
-@api_blueprints.route('/benefits/<int:benefitId>/messages', methods=['GET'])
+@api_blueprints.route('/flask/v1/benefits/<int:benefitId>/messages', methods=['GET'])
 @swag_from({
     'tags': ['Chat'], 
     'summary': '채팅 메시지 목록 조회',
@@ -213,7 +213,7 @@ def get_chat_message(benefitId):
     return response, status_code
 
 # 채팅 입력
-@api_blueprints.route("/benefits/<int:benefitId>/chat", methods=["POST"])
+@api_blueprints.route("/flask/v1/benefits/<int:benefitId>/chat", methods=["POST"])
 @swag_from({
     'tags': ['Chat'], 
     'summary': '채팅 메시지 전송',

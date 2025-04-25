@@ -4,15 +4,12 @@ from flasgger import Swagger
 from ..routes.routes import api_blueprints
 
 from ..config import config  # 이 시점에 config.{PROFILE}.py가 로딩됨
-print("[DEBUG] JSON_ROUTE =", config.SWAGGER_SPECS_JSON_ROUTE)
 
-print("[DEBUG] SPECS_ROUTE =", config.SWAGGER_SPECS_ROUTE)
 
 
 def create_app():
     app = Flask(__name__)
     app.config.from_object(config)
-    CORS(app)
 
     swagger_template = {
         "swagger": "2.0",
@@ -21,9 +18,7 @@ def create_app():
             "description": "Flask Backend Server for AI",
             "version": "1.0.0"
         },
-        "host": config.SWAGGER_HOST,
-        "basePath": "/flask/v1",               
-        "schemes": ["http", "https"]
+
     }
     
     swagger_config = {                         
