@@ -1,5 +1,4 @@
 from flask import Flask
-from flask_cors import CORS
 from flasgger import Swagger
 from ..routes.routes import api_blueprints
 
@@ -9,14 +8,33 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(config)
 
+    app.config['SWAGGER'] = {
+        'title': 'Omni-BE-AI API',
+        'openapi': '3.0.0', 
+        'uiversion': 3 
+    }
+
     swagger_template = {
-        "swagger": "2.0",
         "info": {
-            "title": "Omni-BE-AI API",
+            "title": "Omni-BE-AI API", 
             "description": "Flask Backend Server for AI",
             "version": "1.0.0"
         },
-
+        "components": {
+            "securitySchemes": {
+                "BearerAuth": {
+                    "type": "http",
+                    "scheme": "bearer",
+                    "bearerFormat": "JWT",
+                    "description": "Enter JWT Bearer token **_only_**"
+                }
+            }
+        },
+        "security": [
+            {
+                "BearerAuth": []
+            }
+        ]
     }
     
     swagger_config = {                         
@@ -34,7 +52,7 @@ def create_app():
          "specs_route": config.SWAGGER_SPECS_ROUTE
      }
 
-    swagger = Swagger(app, template=swagger_template, config=swagger_config)
+    swagger = Swagger(app, template=swagger_template, config=swagger_config) 
     
     app.register_blueprint(api_blueprints)
     return app
