@@ -29,7 +29,7 @@ def get_chat_room(sponsorId) -> tuple[str, int]:
     cursor = None # cursor 초기화
     try:
         cursor = connection.cursor(dictionary=True)
-        sql = "SELECT * FROM Benefit WHERE id = %s"
+        sql = "SELECT * FROM Benefit WHERE sponsor_id = %s"
         cursor.execute(sql, (sponsorId,))
         chatrooms = cursor.fetchall()
 
