@@ -1,5 +1,6 @@
 import mysql.connector
 from ..config import config 
+from mysql.connector import Error
 
 def connect_db():
     try:
