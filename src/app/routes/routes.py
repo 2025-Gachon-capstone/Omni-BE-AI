@@ -99,7 +99,7 @@ def test():
                 'type': 'object',
                 'properties': {
                     'isSuccess': {'type': 'boolean', 'example': False},
-                    'code': {'type': 'string', 'example': 'MYSQL-500 or SYS-500'},
+                    'code': {'type': 'string', 'example': 'MYSQL-500 or FLASK-500'},
                     'message': {'type': 'string', 'example': '데이터베이스 연결 실패 or 오류 메시지'},
                     'timestamp': {'type': 'string', 'format': 'date-time'}
                 }
@@ -175,9 +175,9 @@ def get_chat_room():
                                     'type': 'object',
                                     'properties': {
                                         'messageId': {'type': 'integer', 'example': 123},
-                                        'author': {'type': 'string', 'enum': ['AI', 'USER'], 'example': 'USER'},
+                                        'authorType': {'type': 'string', 'enum': ['AI', 'USER'], 'example': 'USER'},
                                         'content': {'type': 'string', 'example': '이거 어때?'},
-                                        'sendAt': {'type': 'string', 'format': 'date-time'} # sendAt 필드 추가됨
+                                        'createdAt': {'type': 'string', 'format': 'date-time'} # createdAt 필드 변경
                                     }
                                 }
                             },
@@ -194,7 +194,7 @@ def get_chat_room():
                 'type': 'object',
                 'properties': {
                     'isSuccess': {'type': 'boolean', 'example': False},
-                    'code': {'type': 'string', 'example': 'MYSQL-500 or SYS-500'},
+                    'code': {'type': 'string', 'example': 'MYSQL-500 or FLASK-500'},
                     'message': {'type': 'string', 'example': '데이터베이스 연결 실패 or 오류 메시지'},
                     'timestamp': {'type': 'string', 'format': 'date-time'}
                 }
@@ -213,7 +213,7 @@ def get_chat_message(benefitId):
     return response, status_code
 
 # 채팅 입력
-@api_blueprints.route("/flask/v1/benefits/<int:benefitId>/chat", methods=["POST"])
+@api_blueprints.route("/flask/v1/benefits/<int:benefitId>/messages", methods=["POST"])
 @swag_from({
     'tags': ['Chat'], 
     'summary': '채팅 메시지 전송',
@@ -222,27 +222,31 @@ def get_chat_message(benefitId):
         {
             'name': 'benefitId',
             'in': 'path',
-            'type': 'integer',
-            'required': True,
-            'description': '채팅을 전송할 혜택 ID'
-        },
-        {
-            'name': 'body',
-            'in': 'body',
             'required': True,
             'schema': {
-                'type': 'object',
-                'properties': {
-                    'user_message': {
-                        'type': 'string',
-                        'description': '사용자가 입력한 메시지',
-                        'example': '안녕하세요!'
-                    }
-                },
-                'required': ['user_message']
-            }
+                'type': 'integer'
+            },
+            'description': '채팅을 전송할 혜택 ID'
         }
     ],
+    'requestBody': {
+        'required': True,
+        'content': {
+            'application/json': {
+                'schema': {
+                    'type': 'object',
+                    'properties': {
+                        'content': {
+                            'type': 'string',
+                            'description': '사용자가 입력한 메시지',
+                            'example': '안녕하세요!'
+                        }
+                    },
+                    'required': ['content']
+                }
+            }
+        }
+    },
     'responses': {
         '201': { # 성공 응답
             'description': 'AI 응답 생성 및 저장 성공',
@@ -257,7 +261,7 @@ def get_chat_message(benefitId):
                     'result': {
                         'type': 'object',
                         'properties': {
-                            'author': {'type': 'string', 'enum': ['AI'], 'example': 'AI'},
+                            'authorType': {'type': 'string', 'enum': ['AI'], 'example': 'AI'},
                             'content': {'type': 'string', 'example': '안녕하세요! 무엇을 도와드릴까요?'}
                         }
                     }
@@ -265,13 +269,13 @@ def get_chat_message(benefitId):
             }
         },
         '400': { # 잘못된 요청
-            'description': '잘못된 요청 (user_message 누락)',
+            'description': '잘못된 요청 (message 누락)',
              'schema': {
                 'type': 'object',
                 'properties': {
                     'isSuccess': {'type': 'boolean', 'example': False},
                     'code': {'type': 'string', 'example': 'REQ-400'},
-                    'message': {'type': 'string', 'example': 'user_message가 요청 본문에 포함되어야 합니다.'},
+                    'message': {'type': 'string', 'example': 'content가 요청 본문에 포함되어야 합니다.'},
                     'timestamp': {'type': 'string', 'format': 'date-time'}
                 }
             }
@@ -282,7 +286,7 @@ def get_chat_message(benefitId):
                 'type': 'object',
                 'properties': {
                     'isSuccess': {'type': 'boolean', 'example': False},
-                    'code': {'type': 'string', 'example': 'MYSQL-500 or SYS-500'},
+                    'code': {'type': 'string', 'example': 'MYSQL-500 or FLASK-500'},
                     'message': {'type': 'string', 'example': '데이터베이스 연결 실패 or 오류 메시지'},
                     'timestamp': {'type': 'string', 'format': 'date-time'}
                 }
@@ -305,19 +309,19 @@ def get_chat_message(benefitId):
 })
 def post_chat_message(benefitId):
     data = request.get_json()
-    if not data or 'user_message' not in data or not data['user_message']:
+    if not data or 'content' not in data or not data['content']:
         error_response = {
             "isSuccess": False,
             "code": "REQ-400",
-            "message": "user_message가 요청 본문에 포함되어야 합니다.",
+            "message": "content가 요청 본문에 포함되어야 합니다.",
             "timestamp": datetime.datetime.now(kst).strftime("%Y-%m-%d %H:%M:%S") # KTC 사용
         }
         # 상태 코드 400 반환
         return make_response(json.dumps(error_response, ensure_ascii=False), 400)
 
-    user_message = data["user_message"]
+    user_content = data["content"]
     # 서비스 함수 호출 및 상태 코드 받기
-    json_string, status_code = post_chat_message_service(benefitId, user_message)
+    json_string, status_code = post_chat_message_service(benefitId, user_content)
     response = make_response(json_string)
     response.mimetype = 'application/json; charset=utf-8'
     # 서비스에서 반환된 상태 코드 사용
