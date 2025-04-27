@@ -24,7 +24,7 @@ def get_chat_message(benefitId, page, size=30) -> tuple[str, int]:
         messages = [
             {
                 "messageId": msg.chat_message_id,
-                "author_type": msg.author_type,  # author 필드가 author_type으로 바뀌었지?
+                "authorType": msg.author_type.value,  # author 필드가 author_type으로 바뀌었지?
                 "content": msg.content
             }
             for msg in chat_messages
