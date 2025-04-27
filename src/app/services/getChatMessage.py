@@ -14,7 +14,7 @@ def get_chat_message(benefitId, page, size=30) -> tuple[str, int]:
         chat_messages = (
             db.session.query(ChatMessage)
             .filter_by(benefit_id=benefitId)
-            .order_by(ChatMessage.chat_message_id.asc())
+            .order_by(ChatMessage.chat_message_id.desc())
             .offset(offset)
             .limit(size)
             .all()
