@@ -1,5 +1,5 @@
 import json
-from app.utils import ts
+from ..utils import ts
 
 from ..utils.db import db  # ✅ SQLAlchemy 연결된 db 가져오기
 from ..models.chatMessage import ChatMessage  # ✅ 모델 가져오기
