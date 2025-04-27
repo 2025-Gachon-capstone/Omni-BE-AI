@@ -2,7 +2,7 @@ import json
 
 from sqlalchemy import text
 
-from app.utils import db, ts
+from ..utils import db, ts
 
 def get_chat_room(sponsorId) -> tuple[str, int]:
     
