@@ -28,7 +28,7 @@ def post_chat_message(benefit_id: int, user_content: str) -> tuple[str, int]:
                 "code": ai_error.split(":")[0],
                 "message": ai_error.split(":")[1].strip(),
                 "timestamp": ts(),
-                "userMessageId": f"msg-{user_message_id}"
+                "chatMessageId": f"msg-{user_message_id}"
             }
             return json.dumps(error_response, ensure_ascii=False), 503
 
@@ -50,7 +50,7 @@ def post_chat_message(benefit_id: int, user_content: str) -> tuple[str, int]:
             "code": "FLASK-201",
             "message": "AI 응답 생성 및 저장 성공",
             "timestamp": ts(),
-            "userMessageId": f"msg-{user_message_id}",
+            "chatMessageId": f"msg-{user_message_id}",
             "result": {
                 "chatMessageId": ai_message_obj.chat_message_id,
                 "authorType": AuthorType.AI.value,
