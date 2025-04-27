@@ -4,7 +4,7 @@ services:
       context: .
       dockerfile: Dockerfile.local
     ports:
-      - "5001:5001" # 호스트의 5000번 포트를 컨테이너의 5000번 포트에 매핑합니다.
+      - "5001:8000" # 호스트의 5001번 포트를 컨테이너의 8000번 포트에 매핑합니다.
     volumes:
       - .:/app # 현재 디렉토리를 컨테이너의 /app 디렉토리에 마운트합니다.
     environment:
@@ -16,5 +16,5 @@ services:
     # 또는 gunicorn을 사용하려면 아래 주석을 해제하세요.
     command: sh -c "
       pip install -r requirements.txt &&
-      flask run --host=0.0.0.0 --port=5001 --reload
+      gunicorn src.app.run:app
       "

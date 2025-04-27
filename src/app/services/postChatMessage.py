@@ -1,7 +1,6 @@
 import json
-import datetime
 
-from app.utils import db, ts
+from ..utils import db, ts
 from .gemini import post_gemini
 from ..models.chatMessage import ChatMessage, AuthorType  # ✅ 모델 가져오기
 
