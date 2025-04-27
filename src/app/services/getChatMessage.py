@@ -23,8 +23,8 @@ def get_chat_message(benefitId, page, size=30) -> tuple[str, int]:
         # 딕셔너리 형태로 변환
         messages = [
             {
-                "messageId": msg.chat_message_id,
-                "author_type": msg.author_type,  # author 필드가 author_type으로 바뀌었지?
+                "chatMessageId": msg.chat_message_id,
+                "authorType": msg.author_type.value,  # author 필드가 author_type으로 바뀌었지?
                 "content": msg.content
             }
             for msg in chat_messages
