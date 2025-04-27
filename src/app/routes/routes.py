@@ -182,7 +182,8 @@ def get_chat_room():
                                 }
                             },
                             'hasNext': {'type': 'boolean', 'example': True},
-                            'hasPrev': {'type': 'boolean', 'example': False}
+                            'hasPrev': {'type': 'boolean', 'example': False},
+                            'currentPage': {'type': 'integer', 'example': 1}
                         }
                     }
                 }

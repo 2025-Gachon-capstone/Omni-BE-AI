@@ -40,6 +40,7 @@ def get_chat_message(benefitId, page, size=30) -> tuple[str, int]:
             "timestamp": ts(),
             "result": {
                 "messages": messages,
+                "currentPage": page,
                 "hasNext": hasNext,
                 "hasPrev": hasPrev
             }
