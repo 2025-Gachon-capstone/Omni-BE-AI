@@ -1,7 +1,7 @@
 import json
 from neomodel import db as neo4j_db
 
-from app.utils.neo4j import safe_connect
+from ..utils.neo4j import safe_connect
 
 from ..repositories.mysql.OrderRepository import MysqlOrderRepository
 from ..repositories.neo4j.OrderRepository import Neo4jOrderRepository

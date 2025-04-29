@@ -29,7 +29,7 @@ kst = pytz.timezone('Asia/Seoul')
 })
 def test():
     # test_service가 상태 코드를 반환하지 않으면 직접 설정
-    response_data = test_service.test()
+    response_data = test_service()
     if isinstance(response_data, tuple):
         return response_data
     return str(response_data), 200
