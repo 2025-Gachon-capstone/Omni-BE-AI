@@ -7,7 +7,7 @@ order_routes = Blueprint('order_routes', __name__, url_prefix='/flask/v1/orders'
 
 @order_routes.route("/<int:order_id>", methods=["POST"])
 @swag_from({
-    'tags': ['Order'],
+    'tags': ['Service-Order'],
     'summary': '주문 저장 (Neo4j)',
     'description': 'MySQL에서 주문 ID를 조회하고, 주문 및 상품 정보를 Neo4j에 저장합니다.',
     'parameters': [
