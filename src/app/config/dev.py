@@ -7,7 +7,7 @@ DB_HOST = os.getenv("DB_HOST")
 DB_PORT = os.getenv("DB_PORT")           
 DB_USER = os.getenv("DB_USER")   
 # NEO4J
-NEO4J_HOST = os.getenv("NEO4J_URL")
+NEO4J_HOST = os.getenv("NEO4J_HOST")
 NEO4J_PORT = os.getenv("NEO4J_PORT")
 NEO4J_USER = os.getenv("NEO4J_USER")
 # DB 공통
