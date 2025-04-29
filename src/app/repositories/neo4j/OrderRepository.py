@@ -1,5 +1,5 @@
-from app.models import Order as Neo4jOrder, Product as Neo4jProduct, Member as Neo4jMember, ContainsRel
-from app.utils.neo4j import safe_connect
+from ...models import Order as Neo4jOrder, Product as Neo4jProduct, Member as Neo4jMember, ContainsRel
+from ...utils.neo4j import safe_connect
 
 class Neo4jOrderRepository:
 
