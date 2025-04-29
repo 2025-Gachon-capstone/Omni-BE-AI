@@ -5,18 +5,15 @@ import pytz # 시간대 사용 위해 임포트
 from flasgger import swag_from
 
 from ..services import test as test_service
-from ..services.getChatroom import get_chat_room as get_chat_room_service
-from ..services.getChatMessage import get_chat_message as get_chat_message_service
-from ..services.postChatMessage import post_chat_message as post_chat_message_service
+from ..services import PromptService
 
-
-api_blueprints = Blueprint("api", __name__)
+prompt_routes = Blueprint("prompt_routes", __name__, url_prefix='/flask/v1')
 
 # 시간대 설정 (오류 응답 생성 시 사용)
 kst = pytz.timezone('Asia/Seoul')
 
 # API 테스트
-@api_blueprints.route("/flask/v1/test", methods=["GET"])
+@prompt_routes.route("/test", methods=["GET"])
 @swag_from({
     'tags': ['Test'], # 태그 추가
     'summary': 'API 경로 테스트',
@@ -34,17 +31,11 @@ def test():
     # test_service가 상태 코드를 반환하지 않으면 직접 설정
     response_data = test_service.test()
     if isinstance(response_data, tuple):
-         json_string, status_code = response_data
-         response = make_response(json_string)
-         response.mimetype = 'application/json; charset=utf-8'
-         return response, status_code
-    else:
-        # 기본 성공 응답 처리
-        response = make_response(str(response_data)) # 문자열 응답 가정
-        return response, 200
+        return response_data
+    return str(response_data), 200
 
 # 채팅방 조회
-@api_blueprints.route("/flask/v1/benefits", methods=["GET"])
+@prompt_routes.route("/benefits", methods=["GET"])
 @swag_from({
     'tags': ['Chat'], # 태그 추가
     'summary': '채팅방 목록 조회',
@@ -110,24 +101,17 @@ def test():
 def get_chat_room():
     sponsorId = request.args.get('sponsorId', type=int)
     if sponsorId is None:
-        error_response = {
+        return json.dumps({
             "isSuccess": False,
             "code": "REQ-400",
             "message": "sponsorId가 필요합니다.",
-            "timestamp": datetime.datetime.now(kst).strftime("%Y-%m-%d %H:%M:%S") # 시간대 적용
-        }
-        # 상태 코드 400 반환
-        return make_response(json.dumps(error_response, ensure_ascii=False), 400)
+            "timestamp": datetime.datetime.now(kst).strftime("%Y-%m-%d %H:%M:%S")
+        }, ensure_ascii=False), 400
 
-    # 서비스 함수 호출 및 상태 코드 받기
-    json_string, status_code = get_chat_room_service(sponsorId)
-    response = make_response(json_string)
-    response.mimetype = 'application/json; charset=utf-8'
-    # 서비스에서 반환된 상태 코드 사용
-    return response, status_code
+    return PromptService.get_chat_room(sponsorId)
 
 # 채팅 메시지 조회
-@api_blueprints.route('/flask/v1/benefits/<int:benefitId>/messages', methods=['GET'])
+@prompt_routes.route('/benefits/<int:benefitId>/messages', methods=['GET'])
 @swag_from({
     'tags': ['Chat'], 
     'summary': '채팅 메시지 목록 조회',
@@ -207,14 +191,10 @@ def get_chat_message(benefitId):
     page = request.args.get('page', default=1, type=int)
     size = request.args.get('size', default=30, type=int) # 기본값 30으로 수정
     # 서비스 함수 호출 및 상태 코드 받기
-    json_string, status_code = get_chat_message_service(benefitId, page, size)
-    response = make_response(json_string)
-    response.mimetype = 'application/json; charset=utf-8'
-    # 서비스에서 반환된 상태 코드 사용
-    return response, status_code
+    return PromptService.get_chat_message(benefitId, page, size)
 
 # 채팅 입력
-@api_blueprints.route("/flask/v1/benefits/<int:benefitId>/messages", methods=["POST"])
+@prompt_routes.route("/benefits/<int:benefitId>/messages", methods=["POST"])
 @swag_from({
     'tags': ['Chat'], 
     'summary': '채팅 메시지 전송',
@@ -311,19 +291,11 @@ def get_chat_message(benefitId):
 def post_chat_message(benefitId):
     data = request.get_json()
     if not data or 'content' not in data or not data['content']:
-        error_response = {
+        return {
             "isSuccess": False,
             "code": "REQ-400",
             "message": "content가 요청 본문에 포함되어야 합니다.",
-            "timestamp": datetime.datetime.now(kst).strftime("%Y-%m-%d %H:%M:%S") # KTC 사용
-        }
-        # 상태 코드 400 반환
-        return make_response(json.dumps(error_response, ensure_ascii=False), 400)
+            "timestamp": datetime.datetime.now(kst).strftime("%Y-%m-%d %H:%M:%S")
+        }, 400
 
-    user_content = data["content"]
-    # 서비스 함수 호출 및 상태 코드 받기
-    json_string, status_code = post_chat_message_service(benefitId, user_content)
-    response = make_response(json_string)
-    response.mimetype = 'application/json; charset=utf-8'
-    # 서비스에서 반환된 상태 코드 사용
-    return response, status_code
+    return PromptService.post_chat_message(benefitId, data["content"])
