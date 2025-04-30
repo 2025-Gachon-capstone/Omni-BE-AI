@@ -1,5 +1,6 @@
 from ...models import Order as Neo4jOrder, Product as Neo4jProduct, Member as Neo4jMember, ContainsRel
 from ...utils.neo4j import safe_connect
+from neomodel import db
 
 class Neo4jOrderRepository:
 
@@ -40,26 +41,35 @@ class Neo4jOrderRepository:
         return product
 
     @staticmethod
-    def get_previous_order(member: Neo4jMember, current_order_id: int) -> Neo4jOrder:
+    def get_previous_order(member: Neo4jMember, new_order_id: int) -> Neo4jOrder:
         try:
-            orders = Neo4jOrder.nodes.filter(ordered_by=member)
+            query = """
+            MATCH (m:Member)-[:ORDERED]->(o:Order)
+            WHERE id(m) = $member_id AND o.order_id < $new_order_id
+            RETURN o ORDER BY o.order_id DESC LIMIT 1
+            """
+            print(f'query: {query}')
+            results, _ = db.cypher_query(query, {
+                "member_id": member.id,
+                "new_order_id": new_order_id
+            })
 
-            if not orders:
-                return None
-            
-            return max(
-                    (o for o in orders if o.order_id != current_order_id),
-                    key=lambda o: o.order_id,
-                    default=None
-                )
+            if results:
+                return Neo4jOrder.inflate(results[0][0])
+            return None
         except Exception as e:
             print(f"Error in get_previous_order: {e}")
             return None
 
     @staticmethod
     def update_previous_order(previous_order: Neo4jOrder, new_order: Neo4jOrder, next_order_list=None):
+        print(f'//------------test-----------------//')
+        print(f'previous_order: {next_order_list}')
+        print(f'previous_order: {previous_order.eval_set}')
         previous_order.next_order_list = next_order_list
         previous_order.eval_set = 'PRIOR'
+        print(f'previous_order: {next_order_list}')
+        print(f'previous_order: {previous_order.eval_set}')
 
         safe_connect(previous_order.next_to, new_order)
         

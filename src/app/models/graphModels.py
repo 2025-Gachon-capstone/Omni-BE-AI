@@ -63,7 +63,7 @@ class Order(StructuredNode):
     
     next_to = RelationshipTo('Order', 'NEXT')
     contains = RelationshipTo('Product', 'CONTAINS', model=ContainsRel)
-    ordered_by = RelationshipFrom('Member', 'ORDERED_BY')
+    ordered_by = RelationshipFrom('Member', 'ORDERED') # RelationshipFrom의 두번째 파라미터는 역참조할 간선의 이름을 넣음
 
 
 class Member(StructuredNode):
