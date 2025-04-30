@@ -46,11 +46,10 @@ class OrderService:
                     "orderCount": min_max_normalize(order_info.get("orderCount"), 0, 100),
                     "status": order_info.get('status')
                 }
-
+                
                 previous_order = Neo4jOrderRepository.get_previous_order(neo4j_member, order_id)
                 new_order = Neo4jOrderRepository.create_order_if_not_exist(order_info_normalized)
                 safe_connect(neo4j_member.ordered, new_order)
-                # safe_connect(new_order.ordered_by, neo4j_member)
 
                 for item, product in zip(order_items, products):
                     new_product = Neo4jOrderRepository.create_product_if_not_exist(
