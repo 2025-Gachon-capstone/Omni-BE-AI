@@ -44,13 +44,13 @@ class Neo4jOrderRepository:
     def get_previous_order(member: Neo4jMember, new_order_id: int) -> Neo4jOrder:
         try:
             query = """
-            MATCH (m:Member)-[:ORDERED]->(o:Order)
-            WHERE id(m) = $member_id AND o.order_id < $new_order_id
+            MATCH (m:Member {member_id: $member_id})-[:ORDERED]->(o:Order)
+            WHERE o.order_id < $new_order_id
             RETURN o ORDER BY o.order_id DESC LIMIT 1
             """
-            print(f'query: {query}')
+            print(f'주문한 유저 id: {member.member_id}')
             results, _ = db.cypher_query(query, {
-                "member_id": member.id,
+                "member_id": member.member_id,
                 "new_order_id": new_order_id
             })
 
