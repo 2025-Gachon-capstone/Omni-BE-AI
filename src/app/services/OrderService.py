@@ -1,17 +1,19 @@
 import json
 from neomodel import db as neo4j_db
 
-from app.repositories.neo4j.MemberRepository import Neo4jMemberRepository
-from app.repositories.neo4j.ProductRepository import Neo4jProductRepository
-from app.utils.gemini import get_text_embedding, post_gemini
-
-from ..utils.neo4j import safe_connect
-
+from ..repositories.neo4j.MemberRepository import Neo4jMemberRepository
+from ..repositories.neo4j.ProductRepository import Neo4jProductRepository
 from ..repositories.mysql.OrderRepository import MysqlOrderRepository
 from ..repositories.neo4j.OrderRepository import Neo4jOrderRepository
-from ..utils import ts
-from ..config import config
+
+from ..utils.gemini import post_gemini
+from ..utils.text_embedding import get_text_embedding
+from ..utils.neo4j import safe_connect
 from ..utils.normalizaiton import min_max_normalize
+
+from ..utils import ts
+
+from ..config import config
 
 # Neo4j 연결 설정 (app 설정에 따라 변경 필요)
 

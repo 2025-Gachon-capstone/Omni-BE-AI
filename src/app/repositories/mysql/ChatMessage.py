@@ -14,6 +14,8 @@ class MysqlChatMessageRepository:
         )
         db.session.add(user_message)
         db.session.flush()  # ID 확보
+        db.session.commit()  # 사용자 메시지는 커밋
+
         return user_message
     
     @staticmethod

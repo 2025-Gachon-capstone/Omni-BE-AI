@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 from ...models import Order as Neo4jOrder, Member as Neo4jMember, Product as Neo4jProduct
 from ...utils.neo4j import safe_connect
 from neomodel import db
@@ -96,12 +96,20 @@ class Neo4jOrderRepository:
         """
         유사한 여러 상품 리스트에 대해 해당 상품이 포함된 주문의 이전 주문들을 모두 수집
         """
-        all_orders = set()
         for product in products:
-            # 이 상품이 포함된 주문들 가져오기
-            all_orders.update(Neo4jOrderRepository.get_recent_orders_for_product(product.product_id))
+             # 이 상품이 포함된 최근 주문들
+            recent_orders = Neo4jOrderRepository.get_recent_orders_for_product(product.product_id)
+            if not recent_orders:
+                continue
+            
+            orders = []
+            for order in recent_orders:
+                # 각 주문의 이전 주문 가져오기
+                prev_order = Neo4jOrderRepository.get_previous_order_for_order(order)
+                if prev_order:
+                    orders.append(prev_order)
 
-        return list(all_orders)
+        return orders if orders else None
     
     @staticmethod
     def get_recent_orders_for_product(product_id: int, limit: int = 5):
@@ -112,5 +120,20 @@ class Neo4jOrderRepository:
         LIMIT $limit
         """
         results, meta = db.cypher_query(query, {"product_id": product_id, "limit": limit})
+        if not results:
+            return []
         return [Neo4jOrder.inflate(row[0]) for row in results]
+    
+    @staticmethod
+    def get_previous_order_for_order(order: Neo4jOrder) -> Optional[Neo4jOrder]:
+        query = """
+        MATCH (prev:Order)-[:NEXT]->(curr:Order {order_id: $order_id})
+        RETURN prev
+        LIMIT 1
+        """
+        results, _ = db.cypher_query(query, {"order_id": order.order_id})
+        if results:
+            return Neo4jOrder.inflate(results[0][0])
+        return None
+
 

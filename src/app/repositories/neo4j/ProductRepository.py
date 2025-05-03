@@ -1,6 +1,6 @@
 from typing import List
 
-from app.models.graphModels import Product
+from ...models.graphModels import Product
 from ...models import Product as Neo4jProduct
 from ...utils.neo4j import safe_connect
 from neomodel import db
