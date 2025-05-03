@@ -1,6 +1,6 @@
 from sqlalchemy import text
 
-from app.models.chatMessage import AuthorType, ChatMessage
+from ...models.chatMessage import AuthorType, ChatMessage
 from ...utils import db
 
 class MysqlChatMessageRepository:
