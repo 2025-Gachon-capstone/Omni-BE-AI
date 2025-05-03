@@ -1,6 +1,5 @@
 import enum
 
-from sqlalchemy import ForeignKeyConstraint
 from ..utils import db
 
 class AuthorType(enum.Enum):

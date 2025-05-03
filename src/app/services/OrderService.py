@@ -1,6 +1,8 @@
 import json
 from neomodel import db as neo4j_db
 
+from app.repositories.neo4j.MemberRepository import Neo4jMemberRepository
+from app.repositories.neo4j.ProductRepository import Neo4jProductRepository
 from app.utils.gemini import get_text_embedding, post_gemini
 
 from ..utils.neo4j import safe_connect
@@ -37,7 +39,7 @@ class OrderService:
 
             # Neo4j에 저장
             try:
-                neo4j_member = Neo4jOrderRepository.create_member_if_not_exist(member_id)
+                neo4j_member = Neo4jMemberRepository.create_member_if_not_exist(member_id)
                 
                 order_info_normalized = {
                     # TODO: 정규화 MAX값 조정해야함
@@ -45,6 +47,7 @@ class OrderService:
                     "orderDow": min_max_normalize(order_info.get("orderDow"), 0, 6),
                     "orderHour": min_max_normalize(order_info.get("orderHour"), 0, 23),
                     "orderCount": min_max_normalize(order_info.get("orderCount"), 0, 100),
+                    "predict_order_list": [0.1] #TODO: graphSAGE 예측
                 }
                 
                 previous_order = Neo4jOrderRepository.get_previous_order(neo4j_member, order_id)
@@ -62,7 +65,7 @@ class OrderService:
                     product_name_vector = get_text_embedding(product.get("productName"))
                     product_category_vector = get_text_embedding(product.get("category"))
 
-                    new_product = Neo4jOrderRepository.create_product_if_not_exist(
+                    new_product = Neo4jProductRepository.create_product_if_not_exist(
                         product,
                         product_name_vector,
                         product_category_vector
@@ -76,8 +79,10 @@ class OrderService:
 
                 # 이전 주문 찾아서 next_order_list 저장 및 연결
                 if previous_order:
-                    Neo4jOrderRepository.update_previous_order(previous_order, new_order)
-
+                    new_product_embedding = [0.1] #TODO: graphSAGE 임베딩
+                    Neo4jOrderRepository.update_previous_order(previous_order, new_order, new_product_embedding)
+                
+                Neo4jMemberRepository.update_member_fields(neo4j_member, {"predict_order_list": order_info_normalized.get("predict_order_list")})
                 metadata = OrderService.update_member_metadata_by_gemini(neo4j_member, new_order)
 
                 body = {
@@ -151,7 +156,7 @@ class OrderService:
         metadata_vector = get_text_embedding(metadata)
         print(f'metadata_vector: {metadata_vector}')
 
-        Neo4jOrderRepository.update_member_fields(member, {
+        Neo4jMemberRepository.update_member_fields(member, {
             "metadata": metadata,
             "metadata_vector": metadata_vector
         })

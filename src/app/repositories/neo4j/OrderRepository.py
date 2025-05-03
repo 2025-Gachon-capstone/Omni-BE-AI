@@ -1,16 +1,9 @@
 from typing import List
-from ...models import Order as Neo4jOrder, Product as Neo4jProduct, Member as Neo4jMember, ContainsRel
+from ...models import Order as Neo4jOrder, Member as Neo4jMember, Product as Neo4jProduct
 from ...utils.neo4j import safe_connect
 from neomodel import db
 
 class Neo4jOrderRepository:
-
-    @staticmethod
-    def create_member_if_not_exist(member_id: int) -> Neo4jMember:
-        member = Neo4jMember.nodes.get_or_none(member_id=member_id)
-        if not member:
-            member = Neo4jMember(member_id=member_id).save()
-        return member
 
     @staticmethod
     def create_order_if_not_exist(order_info: dict, order_info_normalized: dict) -> Neo4jOrder:
@@ -33,25 +26,10 @@ class Neo4jOrderRepository:
                 order_dow_vector=order_info_normalized.get("orderDow"),
                 order_hour_of_day_vector=order_info_normalized.get("orderHour"),
                 order_count_vector=order_info_normalized.get("orderCount"),
+
+                predict_order_list=order_info_normalized.get("predict_order_list")
             ).save()
         return order
-
-    @staticmethod
-    def create_product_if_not_exist(product_mysql: dict, product_name_vecotor: List[float], product_category_vecotor: List[float]) -> Neo4jProduct:
-        product_id = product_mysql.get("productId")
-        product = Neo4jProduct.nodes.get_or_none(product_id=product_id)
-
-        if not product:
-            product = Neo4jProduct(
-                product_id=product_id,
-                name=product_mysql.get("productName"),
-                category=product_mysql.get("category"),
-
-                name_vector=product_name_vecotor, 
-                category_vector=product_category_vecotor)
-            product.save()
-
-        return product
 
     @staticmethod
     def get_previous_order(member: Neo4jMember, new_order_id: int) -> Neo4jOrder:
@@ -114,21 +92,25 @@ class Neo4jOrderRepository:
         return orders
     
     @staticmethod
-    def update_member_fields(member, field_dict: dict):
+    def get_orders_before_product(products: list[Neo4jProduct]) -> list[Neo4jOrder]:
         """
-        Member 노드의 일부 필드를 동적으로 업데이트하는 함수.
-        
-        Args:
-            member (StructuredNode): 대상 Member 노드
-            field_dict (dict): {필드명: 값} 형태의 딕셔너리
+        유사한 여러 상품 리스트에 대해 해당 상품이 포함된 주문의 이전 주문들을 모두 수집
+        """
+        all_orders = set()
+        for product in products:
+            # 이 상품이 포함된 주문들 가져오기
+            all_orders.update(Neo4jOrderRepository.get_recent_orders_for_product(product.product_id))
 
-        Example:
-            update_member_fields(member, {
-                "metadata": "이 고객은 ...",
-                "metadata_vector": [...],
-            })
+        return list(all_orders)
+    
+    @staticmethod
+    def get_recent_orders_for_product(product_id: int, limit: int = 5):
+        query = """
+        MATCH (p:Product {product_id: $product_id})<-[:CONTAINS]-(o:Order)
+        RETURN o
+        ORDER BY o.order_id DESC
+        LIMIT $limit
         """
-        for field, value in field_dict.items():
-            if hasattr(member, field):
-                setattr(member, field, value)
-        member.save()
+        results, meta = db.cypher_query(query, {"product_id": product_id, "limit": limit})
+        return [Neo4jOrder.inflate(row[0]) for row in results]
+

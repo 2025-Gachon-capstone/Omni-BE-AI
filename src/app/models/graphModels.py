@@ -45,6 +45,7 @@ class Product(StructuredNode):
     category_vector = ArrayProperty(FloatProperty()) # 텍스트 임베딩 저장
     node_embedding = ArrayProperty(FloatProperty())
     
+    contained_by = RelationshipFrom('Order', 'CONTAINS')
     discounted_by = RelationshipFrom('Benefit', 'DISCOUNTS')
 
 class Order(StructuredNode):
@@ -83,6 +84,6 @@ class Member(StructuredNode):
     metadata = StringProperty()
 
     metadata_vector = ArrayProperty(FloatProperty())
+    predict_order_list = ArrayProperty(FloatProperty()) # 아직 구매하지 않은 다음 구매내역의 벡터화
 
     ordered = RelationshipTo('Order', 'ORDERED')
-    predict_order_list = ArrayProperty(FloatProperty()) # 아직 구매하지 않은 다음 구매내역의 벡터화
