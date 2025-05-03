@@ -14,8 +14,6 @@ from ..utils import db, ts
 
 from ..models.chatMessage import AuthorType  # ✅ 모델 가져오기
 
-from .RagService import full_rag_dag
-
 
 class PromptService: 
 
