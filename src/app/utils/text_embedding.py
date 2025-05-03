@@ -1,14 +1,14 @@
-from langchain.embeddings.base import Embeddings
+# from langchain.embeddings.base import Embeddings
 from sentence_transformers import SentenceTransformer
 
-class CustomE5Embedding(Embeddings):
-    def embed_documents(self, texts: list[str]) -> list[list[float]]:
-        return [get_text_embedding(t) for t in texts]
+# class CustomE5Embedding(Embeddings):
+#     def embed_documents(self, texts: list[str]) -> list[list[float]]:
+#         return [get_text_embedding(t) for t in texts]
 
-    def embed_query(self, text: str) -> list[float]:
-        return get_text_embedding(text)
+#     def embed_query(self, text: str) -> list[float]:
+#         return get_text_embedding(text)
     
-    from sentence_transformers import SentenceTransformer
+#     from sentence_transformers import SentenceTransformer
 
 # 최초 한 번만 전역 로드 (성능 이유)
 _e5_model = SentenceTransformer("intfloat/multilingual-e5-large-instruct")
