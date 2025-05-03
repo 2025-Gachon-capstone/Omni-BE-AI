@@ -1,3 +1,4 @@
+from typing import List
 from neomodel import StructuredRel, StructuredNode, StringProperty, IntegerProperty, RelationshipTo, RelationshipFrom, FloatProperty, ArrayProperty, BooleanProperty
 
 class ContainsRel(StructuredRel):
@@ -11,20 +12,24 @@ class ContainsRel(StructuredRel):
     add_to_cart_order = FloatProperty()
 
 class Sponsor(StructuredNode):
-    sponsor_id = IntegerProperty()
+    sponsor_id = IntegerProperty(unique_index=True)
+    name = StringProperty()
 
-    name = ArrayProperty(FloatProperty())  # 텍스트 임베딩 저장    
-    node_embedding = ArrayProperty(FloatProperty()) # 그래프 세이지 임베딩 저장
+    name_vector = ArrayProperty(FloatProperty())  # 텍스트 임베딩 저장    
+    node_vector = ArrayProperty(FloatProperty()) # 그래프 세이지 임베딩 저장
     
     issues = RelationshipTo('Benefit', 'ISSUES')
 
 class Benefit(StructuredNode):
-    benefit_id = IntegerProperty()
-    
-    title = ArrayProperty(FloatProperty())  # 텍스트 임베딩 저장
-    tartget_product = ArrayProperty(FloatProperty())  # 텍스트 임베딩 저장
-    target_member = ArrayProperty(FloatProperty())  # 텍스트 임베딩 저장
+    benefit_id = IntegerProperty(unique_index=True)
+    title = StringProperty()
+    target_product = StringProperty()
+    target_member = StringProperty()
     discount_rate = FloatProperty()
+    
+    title_vector = ArrayProperty(FloatProperty())  # 텍스트 임베딩 저장
+    tartget_product_vector = ArrayProperty(FloatProperty())  # 텍스트 임베딩 저장
+    target_member_vector = ArrayProperty(FloatProperty())  # 텍스트 임베딩 저장
     node_embedding = ArrayProperty(FloatProperty())  # 그래프 세이지 임베딩 저장
     
     discounts = RelationshipTo('Product', 'DISCOUNTS')
@@ -32,25 +37,31 @@ class Benefit(StructuredNode):
     issued_by = RelationshipFrom('Sponsor', 'ISSUES')
 
 class Product(StructuredNode):
-    product_id = IntegerProperty()
+    product_id = IntegerProperty(unique_index=True)
+    name = StringProperty()
+    category = StringProperty()
 
-    name = ArrayProperty(FloatProperty())  # 텍스트 임베딩 저장
-    category = FloatProperty() # min-max
+    name_vector = ArrayProperty(FloatProperty())  # 텍스트 임베딩 저장
+    category_vector = ArrayProperty(FloatProperty()) # 텍스트 임베딩 저장
     node_embedding = ArrayProperty(FloatProperty())
     
     discounted_by = RelationshipFrom('Benefit', 'DISCOUNTS')
 
 class Order(StructuredNode):
-    order_id = IntegerProperty()
+    order_id = IntegerProperty(unique_index=True)
     eval_set = StringProperty(choices={
         'PRIOR': 'PRIOR',
         'TRAIN': 'TRAIN',
     })
+    order_count = IntegerProperty()
+    order_dow = IntegerProperty()
+    order_hour_of_day = IntegerProperty()
+    days_since_prior_order = IntegerProperty()
 
-    order_count = FloatProperty() # min-max정규화
-    order_dow = FloatProperty() # min-max
-    order_hour_of_day = FloatProperty() # min-max
-    days_since_prior_order = FloatProperty() # min-max
+    order_count_vector = FloatProperty() # min-max정규화
+    order_dow_vector = FloatProperty() # min-max
+    order_hour_of_day_vector = FloatProperty() # min-max
+    days_since_prior_order_vector = FloatProperty() # min-max
     node_embedding = ArrayProperty(FloatProperty())
 
     '''
@@ -62,12 +73,16 @@ class Order(StructuredNode):
     loss = FloatProperty() # 예측 - 실제
     
     next_to = RelationshipTo('Order', 'NEXT')
+    previous_from = RelationshipFrom('Order', 'NEXT')
     contains = RelationshipTo('Product', 'CONTAINS', model=ContainsRel)
     ordered_by = RelationshipFrom('Member', 'ORDERED') # RelationshipFrom의 두번째 파라미터는 역참조할 간선의 이름을 넣음
 
 
 class Member(StructuredNode):
-    member_id = IntegerProperty()
+    member_id = IntegerProperty(unique_index=True)
+    metadata = StringProperty()
+
+    metadata_vector = ArrayProperty(FloatProperty())
 
     ordered = RelationshipTo('Order', 'ORDERED')
     predict_order_list = ArrayProperty(FloatProperty()) # 아직 구매하지 않은 다음 구매내역의 벡터화
