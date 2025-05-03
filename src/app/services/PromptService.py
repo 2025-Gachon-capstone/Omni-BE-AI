@@ -9,10 +9,13 @@ from ..models.chatMessage import ChatMessage, AuthorType  # ✅ 모델 가져오
 class PromptService: 
 
     @staticmethod
-    def post_chat_message(benefit_id: int, user_content: str) -> tuple[str, int]:
+    def post_chat_message(benefit_id: int, request: str) -> tuple[str, int]:
         '''
         채팅 메시지 입력
         '''
+
+        user_content:str = request["content"]
+        benefit = request["benefit"]
 
         try:
             # 사용자 메시지 먼저 DB에 저장
@@ -27,7 +30,7 @@ class PromptService:
             user_message_id = user_content_obj.chat_message_id
 
             # AI 응답 생성
-            ai_content, ai_error = post_gemini(user_content)
+            ai_content, ai_error = PromptService.chat_gemini(benefit, user_content)
             if ai_error:
                 db.session.commit()  # 사용자 메시지는 커밋
                 error_response = {
@@ -169,5 +172,32 @@ class PromptService:
             }
             print(f'{json.dumps(error_response, ensure_ascii=False, indent=2)}')
             return error_response, 500
+        
+    def chat_gemini(benefit, user_message: str) -> str:
+        """
+        협찬 혜택 정보와 사용자의 채팅 메시지를 기반으로 프롬프트를 생성
+        """
+        lines = []
+
+        if title := benefit.get("title"):
+            lines.append(f"[혜택명]: {title}")
+        if discount_rate := benefit.get("discountRate"):
+            lines.append(f"[할인율]: {discount_rate}%")
+        if target_member := benefit.get("targetMember"):
+            lines.append(f"[타겟 고객]: {target_member}")
+        if target_product := benefit.get("targetProduct"):
+            lines.append(f"[타겟 상품]: {target_product}")
+
+        prompt_context = "\n".join(lines)
+        full_prompt = (
+            f"다음은 협찬사가 작성한 혜택 정보입니다:\n\n"
+            f"{prompt_context}\n\n"
+            f"위의 정보를 참고하여 아래 사용자의 질문에 답하세요:\n"
+            f"단 위의 정보가 없을 경우, 아래 사용자의 질문만을 이용하여 답하세요:\n\n"
+            f"{user_message}"
+        )
+
+        return post_gemini(full_prompt)
+
 
 

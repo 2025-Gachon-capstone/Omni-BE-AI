@@ -221,6 +221,33 @@ def get_chat_message(benefitId):
                             'type': 'string',
                             'description': '사용자가 입력한 메시지',
                             'example': '안녕하세요!'
+                        },
+                        'benefit': {
+                            'type': 'object',
+                            'description': '협찬 혜택 정보',
+                            'properties': {
+                                'title': {
+                                    'type': 'string',
+                                    'description': '혜택명',
+                                    'example': '버거 프로모션'
+                                },
+                                'discountRate': {
+                                    'type': 'number',
+                                    'format': 'float',
+                                    'description': '할인율 (%)',
+                                    'example': 15.0
+                                },
+                                'targetMember': {
+                                    'type': 'string',
+                                    'description': '타겟 고객 설명',
+                                    'example': '햄버거를 자주 구매하는 직장인'
+                                },
+                                'targetProduct': {
+                                    'type': 'string',
+                                    'description': '타겟 상품 설명',
+                                    'example': '버거킹, 맘스터치'
+                                }
+                            },
                         }
                     },
                     'required': ['content']
@@ -298,4 +325,4 @@ def post_chat_message(benefitId):
             "timestamp": datetime.datetime.now(kst).strftime("%Y-%m-%d %H:%M:%S")
         }, 400
 
-    return PromptService.post_chat_message(benefitId, data["content"])
+    return PromptService.post_chat_message(benefitId, data)
