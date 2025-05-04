@@ -9,7 +9,7 @@ from ..repositories.neo4j.MemberRepository import Neo4jMemberRepository
 from ..repositories.neo4j.ProductRepository import Neo4jProductRepository
 
 from ..utils.gemini import  post_gemini
-from ..utils.text_embedding import CustomE5Embedding, get_text_embedding
+from ..utils.text_embedding import get_text_embedding
 from ..utils import db, ts
 
 from ..models.chatMessage import AuthorType  # ✅ 모델 가져오기
