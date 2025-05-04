@@ -1,6 +1,7 @@
 import json
-from logging import config
+from ..config import config
 
+import requests
 from sqlalchemy import text
 
 from ..repositories.neo4j.OrderRepository import Neo4jOrderRepository
@@ -143,6 +144,61 @@ class PromptService:
             }
             print(f'{json.dumps(error_response, ensure_ascii=False, indent=2)}')
             return error_response, 500
+        
+    @staticmethod
+    def submit_benefit(benefit) -> tuple[str, int]:
+        '''
+        협찬 제출 (사용자 혜택 매칭)
+        '''
+        if benefit['status'] in ['PENDING', 'DELETED']:
+            error_response = {
+                "isSuccess": False,
+                "code": "FLASK-400",
+                "message": "제출하지 않은 혜택입니다.",
+                "timestamp": ts(),
+            }
+            print(f'{json.dumps(error_response, ensure_ascii=False, indent=2)}')
+            return error_response, 400
+        
+        target_member = benefit['targetMember']
+        amount = benefit['amount']
+
+        target_member_vector = get_text_embedding(target_member)
+        matched_members = Neo4jMemberRepository.find_members_by_target_member(target_member_vector, amount)
+        num_of_target_member = len(matched_members)
+        
+        if num_of_target_member < amount:
+            error_response = {
+                "isSuccess": False,
+                "code": "FLASK-400",
+                "message": f"매칭된 타겟 고객군({num_of_target_member} 명)이 혜택 발행량({amount} 개)보다 적습니다.",
+                "timestamp": ts(),
+            }
+            print(f'{json.dumps(error_response, ensure_ascii=False, indent=2)}')
+            return error_response, 400
+
+        # 3. Spring 서버로 요청 전송
+        spring_url = f"{config.CARD_SERVER_ADDRESS}/card/v1/cardBenefits"  # 도커 내부에서는 컨테이너 이름으로
+        print(f"spring_url: {spring_url}")
+
+        body = {
+            "benefitId": benefit['benefitId'],
+            "memberIdList": [m.member_id for m in matched_members],
+        }
+
+        try:
+            response = requests.post(spring_url, json=body)
+            if response.status_code == 200:
+                return response.json(), 200
+            else:
+                return response.json(), 500
+        except requests.exceptions.RequestException as e:
+            return {
+                "isSuccess": False,
+                "code": "NETWORK-ERR",
+                "message": f"Spring 서버 통신 실패: {e}",
+                "timestamp": ts(),
+            }, 500
     
     @staticmethod
     def chat_gemini(benefit, user_message: str) -> str:
