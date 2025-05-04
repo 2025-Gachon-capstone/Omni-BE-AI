@@ -178,7 +178,7 @@ class PromptService:
             return error_response, 400
 
         # 3. Spring 서버로 요청 전송
-        spring_url = f"{config.CARD_SERVER_ADDRESS}/card/v1/cardBenefits"  # 도커 내부에서는 컨테이너 이름으로
+        spring_url = f"{config.CARD_SERVER_ADDRESS}/card/v1/cardBenefits"
         print(f"spring_url: {spring_url}")
 
         body = {

@@ -13,7 +13,7 @@ kst = pytz.timezone('Asia/Seoul')
 
 
 # 채팅방 조회
-@prompt_routes.route("/", methods=["GET"])
+@prompt_routes.route("", methods=["GET"])
 @swag_from({
     'tags': ['Prompt'], # 태그 추가
     'summary': '채팅방 목록 조회',
