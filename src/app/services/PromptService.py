@@ -160,7 +160,7 @@ class PromptService:
         #     return error_response, 400
         
         target_member = benefit['targetMember']
-        amount = benefit['amount']
+        amount = int(benefit['amount'])
 
         target_member_vector = get_text_embedding(target_member)
         matched_members = Neo4jMemberRepository.find_members_by_target_member(target_member_vector, amount)
