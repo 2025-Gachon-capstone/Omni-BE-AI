@@ -1,4 +1,3 @@
-```
 from typing import List
 from neomodel import StructuredRel, StructuredNode, StringProperty, IntegerProperty, RelationshipTo, RelationshipFrom, FloatProperty, ArrayProperty, BooleanProperty
 
@@ -88,4 +87,3 @@ class Member(StructuredNode):
     predict_order_list = ArrayProperty(FloatProperty()) # 아직 구매하지 않은 다음 구매내역의 벡터화
 
     ordered = RelationshipTo('Order', 'ORDERED')
-```
