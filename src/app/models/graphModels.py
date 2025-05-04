@@ -34,7 +34,7 @@ class Benefit(StructuredNode):
 class Product(StructuredNode):
     product_id = IntegerProperty()
 
-    name = ArrayProperty(FloatProperty())  # 텍스트 임베딩 저장
+    # name = ArrayProperty(FloatProperty())  # 사실상 product_id와 같은 값이며 인코딩할 필요가 없음, 유사한 이름의 상품끼리의 관계를 표현할 수는 있지만, 불필요한 embedding 유도
     category = FloatProperty() # min-max
     node_embedding = ArrayProperty(FloatProperty())
     
@@ -43,8 +43,9 @@ class Product(StructuredNode):
 class Order(StructuredNode):
     order_id = IntegerProperty()
     eval_set = StringProperty(choices={
-        'PRIOR': 'PRIOR',
-        'TRAIN': 'TRAIN',
+        'prior': 'prior',
+        'train': 'train',
+        'test': 'test'
     })
 
     order_count = FloatProperty() # min-max정규화
