@@ -1,4 +1,5 @@
 import torch
+import os
 # import torch_geometric # 또는 DGL
 from neomodel import db as neo4j_db
 from torch_geometric.data import Data
@@ -11,11 +12,14 @@ from ..models.trainModels import GraphSAGE
 
 # --- 미리 학습된 GraphSAGE 모델 로드 ---
 try:
-    graphsage_model = torch.load('trained_graphsage_model.pt')
+    os.makedirs("src/resources/models", exist_ok=True)
+    graphsage_model = torch.load('src/resources/models/trained_graphsage_lp.pt')
     graphsage_model.eval() # 추론 모드로 설정
 except FileNotFoundError:
     print("Error: Pre-trained GraphSAGE model not found!")
     graphsage_model = None # 모델 로드 실패 시 None 처리
+
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 class PredictService:
 
