@@ -14,6 +14,8 @@ NEO4J_USER = os.getenv("NEO4J_USER")
 DB_PASSWORD = os.getenv("DB_PASSWORD")  
 DB_NAME = os.getenv("DB_NAME")   
 
+CARD_SERVER_ADDRESS = os.getenv("CARD_SERVER_ADDRESS")
+
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")  
 
 SWAGGER_SPECS_ROUTE = os.getenv("SWAGGER_SPECS_ROUTE")
