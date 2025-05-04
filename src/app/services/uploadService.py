@@ -33,9 +33,27 @@ def upload_csv_to_neo4j(csv_path):
     try:
         print("[INFO] 기존 모든 노드와 관계를 삭제합니다...")
         db.cypher_query("MATCH (n) DETACH DELETE n;")
-        print("[INFO] 삭제 완료. 데이터 업로드를 시작합니다.")
+        print("[INFO] 모든 노드/관계 삭제 완료. 인덱스/제약조건을 삭제합니다...")
+        # 모든 인덱스 삭제
+        try:
+            db.cypher_query("CALL db.indexes() YIELD name CALL db.dropIndex(name) YIELD name AS dropped RETURN dropped;")
+        except Exception as e:
+            print(f"[WARN] 인덱스 삭제 중 오류(무시): {e}")
+        # 모든 제약조건 삭제
+        try:
+            db.cypher_query("CALL db.constraints() YIELD name CALL db.dropConstraint(name) YIELD name AS dropped RETURN dropped;")
+        except Exception as e:
+            print(f"[WARN] 제약조건 삭제 중 오류(무시): {e}")
+        print("[INFO] 인덱스/제약조건 삭제 완료. 필요한 인덱스/제약조건을 다시 생성합니다...")
+        # 필요한 unique 제약조건 재생성
+        db.cypher_query("CREATE CONSTRAINT member_id_unique IF NOT EXISTS FOR (m:Member) REQUIRE m.member_id IS UNIQUE")
+        db.cypher_query("CREATE CONSTRAINT product_id_unique IF NOT EXISTS FOR (p:Product) REQUIRE p.product_id IS UNIQUE")
+        db.cypher_query("CREATE CONSTRAINT order_id_unique IF NOT EXISTS FOR (o:Order) REQUIRE o.order_id IS UNIQUE")
+        db.cypher_query("CREATE CONSTRAINT sponsor_id_unique IF NOT EXISTS FOR (s:Sponsor) REQUIRE s.sponsor_id IS UNIQUE")
+        db.cypher_query("CREATE CONSTRAINT benefit_id_unique IF NOT EXISTS FOR (b:Benefit) REQUIRE b.benefit_id IS UNIQUE")
+        print("[INFO] 인덱스/제약조건 재생성 완료. 데이터 업로드를 시작합니다.")
     except Exception as e:
-        print(f"[ERROR] 전체 삭제 중 오류 발생: {e}")
+        print(f"[ERROR] 전체 삭제/인덱스 재설정 중 오류 발생: {e}")
         return
 
     try:
@@ -108,7 +126,7 @@ def upload_csv_to_neo4j(csv_path):
 
 if __name__ == "__main__":
     try:
-        upload_csv_to_neo4j("src/resources/master_dataset_head(100).csv")
+        upload_csv_to_neo4j("src/resources/master_dataset(100).csv")
     except Exception as e:
         print(f"[FATAL] 업로드 전체 실패: {e}")
         print("[TIP] Neo4j 서버가 실행 중인지, 연결 정보가 올바른지 확인하세요.")

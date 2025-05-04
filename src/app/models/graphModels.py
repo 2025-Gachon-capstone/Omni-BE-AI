@@ -11,7 +11,7 @@ class ContainsRel(StructuredRel):
     add_to_cart_order = FloatProperty()
 
 class Sponsor(StructuredNode):
-    sponsor_id = IntegerProperty()
+    sponsor_id = IntegerProperty(unique_index=True, required=True)
 
     name = ArrayProperty(FloatProperty())  # 텍스트 임베딩 저장    
     node_embedding = ArrayProperty(FloatProperty()) # 그래프 세이지 임베딩 저장
@@ -19,7 +19,7 @@ class Sponsor(StructuredNode):
     issues = RelationshipTo('Benefit', 'ISSUES')
 
 class Benefit(StructuredNode):
-    benefit_id = IntegerProperty()
+    benefit_id = IntegerProperty(unique_index=True, required=True)
     
     title = ArrayProperty(FloatProperty())  # 텍스트 임베딩 저장
     tartget_product = ArrayProperty(FloatProperty())  # 텍스트 임베딩 저장
@@ -32,7 +32,7 @@ class Benefit(StructuredNode):
     issued_by = RelationshipFrom('Sponsor', 'ISSUES')
 
 class Product(StructuredNode):
-    product_id = IntegerProperty()
+    product_id = IntegerProperty(unique_index=True, required=True)
 
     # name = ArrayProperty(FloatProperty())  # 사실상 product_id와 같은 값이며 인코딩할 필요가 없음, 유사한 이름의 상품끼리의 관계를 표현할 수는 있지만, 불필요한 embedding 유도
     category = FloatProperty() # min-max
@@ -41,7 +41,7 @@ class Product(StructuredNode):
     discounted_by = RelationshipFrom('Benefit', 'DISCOUNTS')
 
 class Order(StructuredNode):
-    order_id = IntegerProperty()
+    order_id = IntegerProperty(unique_index=True, required=True)
     eval_set = StringProperty(choices={
         'prior': 'prior',
         'train': 'train',
@@ -68,7 +68,6 @@ class Order(StructuredNode):
 
 
 class Member(StructuredNode):
-    member_id = IntegerProperty()
-
+    member_id = IntegerProperty(unique_index=True, required=True) #unique 설정 필요
     ordered = RelationshipTo('Order', 'ORDERED')
     predict_order_list = ArrayProperty(FloatProperty()) # 아직 구매하지 않은 다음 구매내역의 벡터화
