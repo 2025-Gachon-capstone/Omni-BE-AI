@@ -1,12 +1,12 @@
 # API 테스트
 from flask import Blueprint
-from app.routes import promptRoutes
 from flasgger import swag_from
+
 from ..services import test as test_service
 
 test_routes = Blueprint("test_routes", __name__, url_prefix='/flask/v1')
 
-@promptRoutes.route("/test", methods=["GET"])
+@test_routes.route("/test", methods=["GET"])
 @swag_from({
     'tags': ['Test'], # 태그 추가
     'summary': 'API 경로 테스트',
