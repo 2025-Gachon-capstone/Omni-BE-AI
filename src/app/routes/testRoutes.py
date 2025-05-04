@@ -4,7 +4,7 @@ from app.routes import promptRoutes
 from flasgger import swag_from
 from ..services import test as test_service
 
-prompt_routes = Blueprint("prompt_routes", __name__, url_prefix='/flask/v1')
+test_routes = Blueprint("test_routes", __name__, url_prefix='/flask/v1')
 
 @promptRoutes.route("/test", methods=["GET"])
 @swag_from({
