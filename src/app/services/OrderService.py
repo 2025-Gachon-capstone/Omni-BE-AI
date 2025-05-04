@@ -156,7 +156,7 @@ class OrderService:
             raise ConnectionError(message)
 
         metadata_vector = get_text_embedding(metadata)
-        print(f'metadata_vector: {metadata_vector}')
+        print(f'metadata_vector_len: {len(metadata_vector)}')
 
         Neo4jMemberRepository.update_member_fields(member, {
             "metadata": metadata,

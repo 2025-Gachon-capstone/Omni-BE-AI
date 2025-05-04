@@ -87,3 +87,27 @@ class Neo4jMemberRepository:
         except Exception as e:
             print(f"[Neo4jMemberRepository] 벡터 검색 실패: {e}")
             return []
+        
+    @staticmethod
+    def find_members_by_target_member(target_member_vector: list[float], top_k: int = 5) -> list:
+        """
+        Neo4j 내장 벡터 인덱스를 활용하여 predict_order_list 유사도가 높은 회원 조회
+        """
+        try:
+
+            query = f"""
+            CALL db.index.vector.queryNodes('metadataVectorIndex', $topK, $vector)
+            YIELD node, score
+            RETURN node
+            """
+            params = {
+                "topK": top_k,
+                "vector": target_member_vector
+            }
+
+            results, _ = db.cypher_query(query, params)
+            return [Neo4jMember.inflate(row[0]) for row in results]
+
+        except Exception as e:
+            print(f"[Neo4jMemberRepository] 벡터 검색 실패: {e}")
+            return []
