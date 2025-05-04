@@ -96,13 +96,14 @@ class Neo4jOrderRepository:
         """
         유사한 여러 상품 리스트에 대해 해당 상품이 포함된 주문의 이전 주문들을 모두 수집
         """
+        orders = []
+        
         for product in products:
              # 이 상품이 포함된 최근 주문들
             recent_orders = Neo4jOrderRepository.get_recent_orders_for_product(product.product_id)
             if not recent_orders:
                 continue
             
-            orders = []
             for order in recent_orders:
                 # 각 주문의 이전 주문 가져오기
                 prev_order = Neo4jOrderRepository.get_previous_order_for_order(order)
