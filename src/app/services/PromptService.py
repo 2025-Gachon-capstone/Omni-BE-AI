@@ -149,15 +149,15 @@ class PromptService:
         '''
         협찬 제출 (사용자 혜택 매칭)
         '''
-        if benefit['status'] in ['PENDING', 'DELETED']:
-            error_response = {
-                "isSuccess": False,
-                "code": "FLASK-400",
-                "message": "제출하지 않은 혜택입니다.",
-                "timestamp": ts(),
-            }
-            print(f'{json.dumps(error_response, ensure_ascii=False, indent=2)}')
-            return error_response, 400
+        # if benefit['status'] in ['PENDING', 'DELETED']:
+        #     error_response = {
+        #         "isSuccess": False,
+        #         "code": "FLASK-400",
+        #         "message": "제출하지 않은 혜택입니다.",
+        #         "timestamp": ts(),
+        #     }
+        #     print(f'{json.dumps(error_response, ensure_ascii=False, indent=2)}')
+        #     return error_response, 400
         
         target_member = benefit['targetMember']
         amount = benefit['amount']
