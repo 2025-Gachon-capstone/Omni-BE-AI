@@ -38,12 +38,12 @@ class OrderService:
                 neo4j_member = Neo4jOrderRepository.create_member_if_not_exist(member_id)
                 
                 order_info_normalized = {
-                    # TODO: 정규화 MAX값 조정해야함
+                    # 우선은 0~1로 정규화, 숫자가 클수록 편차가 모델에 미치는 영향이 커짐.
                     "orderId": order_info.get("orderId"),
-                    "daysSincePrior": min_max_normalize(order_info.get("daysSincePrior"), 0, 100),
-                    "orderDow": min_max_normalize(order_info.get("orderDow"), 0, 6),
-                    "orderHour": min_max_normalize(order_info.get("orderHour"), 0, 23),
-                    "orderCount": min_max_normalize(order_info.get("orderCount"), 0, 100),
+                    "daysSincePrior": min_max_normalize(order_info.get("daysSincePrior"), 0, 1),
+                    "orderDow": min_max_normalize(order_info.get("orderDow"), 0, 1),
+                    "orderHour": min_max_normalize(order_info.get("orderHour"), 0, 1),
+                    "orderCount": min_max_normalize(order_info.get("orderCount"), 0, 1),
                     "status": order_info.get('status')
                 }
                 

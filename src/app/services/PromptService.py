@@ -160,7 +160,6 @@ class PromptService:
             return body, 200
 
         except Exception as e:
-
             error_response = {
                 "isSuccess": False,
                 "code": "MYSQL-500",
