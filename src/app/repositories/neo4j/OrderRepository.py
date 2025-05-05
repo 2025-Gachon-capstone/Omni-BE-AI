@@ -136,5 +136,18 @@ class Neo4jOrderRepository:
         if results:
             return Neo4jOrder.inflate(results[0][0])
         return None
-
-
+    
+    @staticmethod
+    def create_next_order_relations()->bool:
+        query = """
+            MATCH (m:Member)-[:ORDERED]->(o:Order)
+            WITH m, o
+            ORDER BY m.member_id, o.order_count
+            WITH m.member_id AS member_id, collect(o) AS orders
+            UNWIND range(0, size(orders) - 2) AS idx
+            WITH member_id, orders[idx] AS fromOrder, orders[idx + 1] AS toOrder
+            MERGE (fromOrder)-[:NEXT]->(toOrder)
+            RETURN DISTINCT member_id
+            """
+        results, _ = db.cypher_query(query)
+        return [row[0] for row in results]  # 리스트 형태로 member_id 반환

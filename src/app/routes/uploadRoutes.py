@@ -2,14 +2,16 @@ from flask import Blueprint, request
 from flasgger import swag_from
 from datetime import datetime
 
+from src.app.services.OrderService import OrderService
+
 from ..services import UploadService
-from ..services import OrderService
+from ..services.UploadService import UploadService
 
-ml_routes = Blueprint('ml_routes', __name__, url_prefix='/flask/v1/ml')
+upload_routes = Blueprint('upload_routes', __name__, url_prefix='/flask/v1/upload')
 
-@ml_routes.route("/uploads", methods=["GET"])
+@upload_routes.route("", methods=["GET"])
 @swag_from({
-    'tags': ['Service-ML'],
+    'tags': ['Service-Upload'],
     'summary': 'CSV 파일을 Neo4j로 업로드',
     'description': 'resources/csv/uploads.csv 파일의 데이터를 Neo4j에 일괄 업로드합니다. 기존 노드와 관계는 모두 삭제됩니다.',
     'responses': {
@@ -60,9 +62,9 @@ def upload_csv():
                 "timestamp": datetime.now().isoformat()
             }, 500
 
-@ml_routes.route("/metadata", methods=["GET"])
+@upload_routes.route("/metadata", methods=["GET"])
 @swag_from({
-    'tags': ['Service-ML'],
+    'tags': ['Service-Upload'],
     'summary': '모든 멤버 metadata 일괄 갱신',
     'description': 'Neo4j에 저장된 모든 멤버의 최근 5개 주문을 기반으로 Gemini를 활용해 metadata를 일괄 갱신합니다. 이미 metadata가 존재하는 멤버는 건너뜁니다.',
     'responses': {
@@ -101,7 +103,7 @@ def upload_csv():
         }
     }
 })
-def metadata():
+def create_metadata():
     print("ml.metadata")
     if request.method == "GET":
         try:
@@ -121,4 +123,39 @@ def metadata():
                 "isSuccess": False,
                 "message": f"metadata 갱신 중 오류 발생: {str(e)}"
             }, 500
+
+@upload_routes.patch("/orders/create-next-edges")
+@swag_from({
+    'tags': ['Service-Upload'],
+    'summary': 'Order 간 NEXT 관계 생성',
+    'description': 'Neo4j에 저장된 각 멤버별 주문(Order) 간 시간 순서를 기준으로 NEXT 관계를 생성합니다.',
+    'responses': {
+        '200': {
+            'description': 'NEXT 관계 생성 완료 여부',
+            'schema': {
+                'type': 'object',
+                'properties': {
+                    'isSuccess': {'type': 'boolean', 'example': True},
+                    'message': {'type': 'string', 'example': 'NEXT 관계 생성 완료'}
+                }
+            }
+        },
+        '500': {
+            'description': 'NEXT 관계 생성 실패',
+            'schema': {
+                'type': 'object',
+                'properties': {
+                    'isSuccess': {'type': 'boolean', 'example': False},
+                    'message': {'type': 'string', 'example': 'NEXT 관계 생성 실패: 오류 메시지'}
+                }
+            }
+        }
+    }
+})
+def create_next_edges():
+    success = UploadService.setup_next_relations()
+    return {
+        "isSuccess": success,
+        "message": "NEXT 관계 생성 완료" if success else "NEXT 관계 생성 실패"
+    }, 200
 
