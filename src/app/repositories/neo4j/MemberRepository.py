@@ -111,3 +111,10 @@ class Neo4jMemberRepository:
         except Exception as e:
             print(f"[Neo4jMemberRepository] 벡터 검색 실패: {e}")
             return []
+
+    @staticmethod
+    def get_all_members():
+        """
+        Neo4j에 저장된 모든 멤버 노드를 반환합니다.
+        """
+        return Neo4jMember.nodes.all()

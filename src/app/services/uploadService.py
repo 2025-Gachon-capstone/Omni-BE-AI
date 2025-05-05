@@ -1,136 +1,132 @@
-# train_link_pred_neomodel.py
-import os, json, torch, torch.nn.functional as F
-from torch import nn
-from torch_geometric.data import HeteroData
-from torch_geometric.loader import LinkNeighborLoader
-from torch_geometric.nn import SAGEConv, HeteroConv
-from neomodel import config as nconfig, db                         # ← 핵심
-from src.app.config import config as app_cfg                       # ← 환경 변수 객체
-from tqdm import tqdm
+import pandas as pd
+from src.app.models.graphModels import Member, Product, Order, Benefit, Sponsor
+from neomodel.exceptions import NeomodelException
+from neomodel import config as neomodel_config
+from src.app.config import config  # config/__init__.py에서 config 객체를 export함
+from neomodel import db  # Cypher 쿼리 실행을 위해 추가
+from src.app.utils.text_embedding import get_text_embedding
+from src.app.utils.normalizaiton import min_max_normalize
 
-###############################################################################
-# 0. Neo4j 연결 ----------------------------------------------------------------
-host = app_cfg.NEO4J_HOST.split(':')[0] if ':' in str(app_cfg.NEO4J_HOST) else app_cfg.NEO4J_HOST
-port = app_cfg.NEO4J_PORT if hasattr(app_cfg, 'NEO4J_PORT') else 7687
-nconfig.DATABASE_URL = f"bolt://{app_cfg.NEO4J_USER}:{app_cfg.DB_PASSWORD}@{host}:{port}"
 
-###############################################################################
-# 1. 그래프 추출 ---------------------------------------------------------------
-def cypher_df(query:str, params:dict=None):
-    records, _ = db.cypher_query(query, params or {})
-    import pandas as pd
-    return pd.DataFrame([dict(r) for r in records])
+host = config.NEO4J_HOST
+port = config.NEO4J_PORT
+neomodel_config.DATABASE_URL = f'bolt://{config.NEO4J_USER}:{config.DB_PASSWORD}@{host}:{port}'
 
-print("①  Member / Product 노드 로드...")
-df_user  = cypher_df("MATCH (m:Member)  RETURN id(m) AS nid, m.member_id  AS mid")
-df_prod  = cypher_df("MATCH (p:Product) RETURN id(p) AS nid, p.product_id AS pid")
+def safe_float(val, default=0.0): 
+    try:
+        if pd.isna(val):
+            return default
+        return float(val)
+    except Exception:
+        return default
 
-u_map = {nid:i for i,nid in enumerate(df_user.nid)}
-p_map = {nid:i for i,nid in enumerate(df_prod.nid, start=len(u_map))}
-u_inv = {row.mid:i for i,row in df_user.iterrows()}
-p_inv = {row.pid:i+len(u_map) for i,row in df_prod.iterrows()}
+def safe_int(val, default=0):
+    try:
+        if pd.isna(val):
+            return default
+        return int(val)
+    except Exception:
+        return default
 
-print("②  eval_set='prior' 구매 관계 로드...")
-q_prior = """
-MATCH (m:Member)-[:ORDERED]->(:Order {eval_set:'prior'})
-      -[:CONTAINS]->(p:Product)
-RETURN id(m) AS src, id(p) AS dst
-"""
-rec, _ = db.cypher_query(q_prior)
-e_src, e_dst = [], []
-for r in rec:
-    if r[0] in u_map and r[1] in p_map:
-        e_src.append(u_map[r[0]])
-        e_dst.append(p_map[r[1]])
-edge_index = torch.tensor([e_src, e_dst], dtype=torch.long)
+# 주의! 업로드 시작 시 모든 노드와 관계를 삭제함
+# 이렇게 할 수 있는 이유는 neo4j는 관계형 DB이기에 테이블 스키마가 필요 없음
 
-print("③  eval_set='train'  (라벨)  로드...")
-q_train = """
-MATCH (m:Member)-[:ORDERED]->(:Order {eval_set:'train'})
-      -[:CONTAINS]->(p:Product)
-RETURN m.member_id AS mid, p.product_id AS pid
-"""
-lbl_pos, _ = db.cypher_query(q_train)
-lbl_pairs = [(int(r[0]), int(r[1])) for r in lbl_pos]
+def upload_csv_to_neo4j(csv_path):
+    try:
+        print("[INFO] 기존 모든 노드와 관계를 삭제합니다...")
+        db.cypher_query("MATCH (n) DETACH DELETE n;")
+        print("[INFO] 삭제 완료. 데이터 업로드를 시작합니다.")
+    except Exception as e:
+        print(f"[ERROR] 전체 삭제 중 오류 발생: {e}")
+        return
 
-###############################################################################
-# 2. PyG HeteroData -----------------------------------------------------------
-N_user   = len(u_map)
-N_prod   = len(p_map)
-EMB_DIM  = 32
-data = HeteroData()
-data['user'].num_nodes    = N_user
-data['product'].num_nodes = N_prod
-data['user','buys','product'].edge_index       = edge_index
-data['product','bought_by','user'].edge_index  = edge_index.flip(0)
+    try:
+        df = pd.read_csv(csv_path)
+    except Exception as e:
+        print(f"[ERROR] CSV 파일을 읽는 중 오류 발생: {e}")
+        return
 
-# 특징: 타입 one‑hot(2) + ID 임베딩(32)
-type_user    = torch.tensor([[1,0]]).repeat(N_user ,1)
-type_product = torch.tensor([[0,1]]).repeat(N_prod ,1)
-emb_user     = nn.Embedding(N_user , EMB_DIM, sparse=True)
-emb_product  = nn.Embedding(N_prod , EMB_DIM, sparse=True)
-data['user'].x    = torch.cat([type_user   , emb_user .weight], 1)
-data['product'].x = torch.cat([type_product, emb_product.weight],1)
+    for idx, row in df.iterrows():
+        try:
+            print(f"[INFO] {idx+1}/{len(df)}번째 row 처리 중...")
 
-###############################################################################
-# 3. Hetero GraphSAGE ---------------------------------------------------------
-class HetSAGE(nn.Module):
-    def __init__(self, in_dim, hid, out):
-        super().__init__()
-        self.conv1 = HeteroConv({
-            ('user','buys','product'):   SAGEConv((-1,-1), hid),
-            ('product','bought_by','user'): SAGEConv((-1,-1), hid)},
-            aggr='mean')
-        self.conv2 = HeteroConv({
-            ('user','buys','product'):   SAGEConv((hid,hid), out),
-            ('product','bought_by','user'): SAGEConv((hid,hid), out)},
-            aggr='mean')
-    def forward(self, x_dict, edge_dict):
-        h = {k:F.relu(v) for k,v in self.conv1(x_dict, edge_dict).items()}
-        return self.conv2(h, edge_dict)
+            # 1. Member 노드 생성/조회 및 속성 할당
+            member_id = safe_int(row['user_id'])
+            member = Member.get_or_create({'member_id': member_id})[0]
+            print(f"  [DEBUG] Member({member_id}) 생성/조회 완료")
+            # predict_order_list는 빈 리스트로 초기화 (나중에 모델 학습 후 채움)
+            member.predict_order_list = []
+            print(f"  [DEBUG] Member({member_id}) 생성/조회 및 속성 저장 완료")
+            member.metadata = ''
+            member.metadata_vector = []
+            member.predict_order_list = []
+            member.save()
+            
+            # 2. Product 노드 생성/조회 및 속성 할당
+            product_id = safe_int(row['product_id'])
+            product_name = str(row['product_name']) if 'product_name' in row and not pd.isna(row['product_name']) else ''
+            department = str(row['department']) if 'department' in row and not pd.isna(row['department']) else ''
+            product = Product.get_or_create({
+                'product_id': product_id,
+                'name': product_name,
+                'category': department
+            })[0]
+            product.name_vector = get_text_embedding(product_name, task="상품명 임베딩") if product_name else []
+            product.category_vector = get_text_embedding(department, task="카테고리 임베딩") if department else []
+            product.node_embedding = []
+            product.save()
+            print(f"  [DEBUG] Product({product_id}) 생성/조회 및 속성 저장 완료")
 
-model = HetSAGE(in_dim=2+EMB_DIM, hid=64, out=64).to('cuda' if torch.cuda.is_available() else 'cpu')
+            # 3. Order 노드 생성/조회 및 속성 할당
+            order_id = safe_int(row['order_id'])
+            # CSV의 eval_set 값을 대문자로 변환 (prior -> PRIOR, train -> TRAIN, test -> TEST)
+            eval_set_value = str(row['eval_set']).upper() if not pd.isna(row['eval_set']) else ""
+            order_count = safe_float(row['order_number'])
+            order_dow = safe_float(row['order_dow'])
+            order_hour_of_day = safe_float(row['order_hour_of_day'])
+            days_since_prior_order = safe_float(row['days_since_prior_order'])
+            order = Order.get_or_create({
+                'order_id': order_id,
+                'eval_set': eval_set_value, # 대문자로 변환된 값 사용
+                'order_count': order_count,
+                'order_dow': order_dow,
+                'order_hour_of_day': order_hour_of_day,
+                'days_since_prior_order': days_since_prior_order,
+                'node_embedding': [],
+                'predict_order_list': [],
+                'next_order_list': [],
+                'loss': 0.0  # FloatProperty는 None으로 초기화 가능
+            })[0]
+            # 정규화 값 저장 (정규화 구간은 0~1로 가정, 실제 min/max는 데이터셋에 맞게 조정 필요)
+            order.order_count_vector = min_max_normalize(order_count, 0, 1)
+            order.order_dow_vector = min_max_normalize(order_dow, 0, 1)
+            order.order_hour_of_day_vector = min_max_normalize(order_hour_of_day, 0, 1)
+            order.days_since_prior_order_vector = min_max_normalize(days_since_prior_order, 0, 1)
+            order.save()
+            print(f"  [DEBUG] Order({order_id}) 생성/조회 및 속성 저장 완료")
 
-###############################################################################
-# 4. 링크‑프리딕션 학습 -------------------------------------------------------
-loader = LinkNeighborLoader(
-    data,
-    num_neighbors=[25,10],
-    batch_size=4096,
-    edge_label_index=(('user','buys','product'), data['user','buys','product'].edge_index),
-    edge_label=torch.ones(data['user','buys','product'].edge_index.size(1)),
-    shuffle=True, neg_sampling_ratio=1.0)
+            # 4. Member-Order 관계 생성
+            if not member.ordered.is_connected(order):
+                member.ordered.connect(order)
+                print(f"  [DEBUG] Member({member_id})-ORDERED->Order({order_id}) 관계 생성 완료")
+            else:
+                print(f"  [DEBUG] Member({member_id})-ORDERED->Order({order_id}) 이미 연결됨")
 
-opt = torch.optim.Adam(model.parameters(), lr=0.002)
-model.train()
-for epoch in range(5):
-    tot=0
-    for batch in loader:
-        batch = batch.to(model.device)
-        z = model(batch.x_dict, batch.edge_index_dict)
-        src = z['user'   ][batch['user','buys','product'].edge_label_index[0]]
-        dst = z['product'][batch['user','buys','product'].edge_label_index[1]]
-        logit = (src*dst).sum(-1)
-        loss  = F.binary_cross_entropy_with_logits(logit,
-                batch['user','buys','product'].edge_label.float())
-        opt.zero_grad(); loss.backward(); opt.step()
-        tot += loss.item()
-    print(f"epoch {epoch+1}  loss {tot/len(loader):.4f}")
-
-###############################################################################
-# 5. 전체 임베딩 추출 & 저장 --------------------------------------------------
-model.eval()
-with torch.no_grad():
-    z = model(
-        {'user':data['user'].x.to(model.device),
-         'product':data['product'].x.to(model.device)},
-        {k:v.to(model.device) for k,v in data.edge_index_dict.items()}
-    )
-torch.save({
-    'model_state': model.state_dict(),
-    'emb_user':    z['user'].cpu(),
-    'emb_product': z['product'].cpu(),
-    'u_inv':       u_inv,
-    'p_inv':       p_inv
-}, "src/resources/models/trained_graphsage_lp.pt")
-print("✔  모델과 노드 임베딩이 src/resources/models/trained_graphsage_lp.pt 에 저장되었습니다.")
+            # 5. Order-Product(Contains) 관계 생성 (속성 포함)
+            add_to_cart_order = safe_float(row['add_to_cart_order'])
+            reordered = bool(safe_int(row['reordered']))
+            if not order.contains.is_connected(product):
+                order.contains.connect(product, {
+                    'add_to_cart_order': add_to_cart_order,
+                    'reordered': reordered
+                })
+                print(f"  [DEBUG] Order({order_id})-CONTAINS->Product({product_id}) 관계 생성 완료")
+            else:
+                print(f"  [DEBUG] Order({order_id})-CONTAINS->Product({product_id}) 이미 연결됨")
+        except NeomodelException as ne:
+            print(f"[ERROR] Neo4j 작업 중 오류 발생: {ne}")
+            print("[TIP] Neo4j 서버가 실행 중인지, 연결 정보가 올바른지 확인하세요.")
+            return
+        except Exception as e:
+            print(f"[ERROR] {idx+1}번째 row 처리 중 예외 발생: {e}")
+            continue

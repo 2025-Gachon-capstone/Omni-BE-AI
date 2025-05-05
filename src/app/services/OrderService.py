@@ -165,3 +165,31 @@ class OrderService:
         })
 
         return metadata
+
+    @staticmethod
+    def update_every_member_metadata_by_gemini():
+        """
+        모든 멤버에 대해 최근 5개 주문을 기준으로 Gemini 기반 metadata 갱신
+        이미 metadata가 존재하는 멤버는 제외 (빈 문자열도 제외)
+        """
+        members = Neo4jMemberRepository.get_all_members()
+        updated_count = 0
+        for member in members:
+            # 이미 metadata가 존재하면 건너뜀 (빈 문자열도 포함)
+            if getattr(member, 'metadata', None) not in [None, '']:
+                print(f"멤버 {getattr(member, 'member_id', '알수없음')}는 이미 metadata가 존재하여 건너뜁니다.")
+                continue
+            # 멤버의 가장 최근 주문(Order) 노드를 먼저 찾음
+            last_order = Neo4jOrderRepository.get_previous_order(member, 999999999)
+            if last_order:
+                try:
+                    # 가장 최근 주문을 기준으로 5개 주문을 가져와 metadata 갱신
+                    OrderService.update_member_metadata_by_gemini(member, last_order)
+                    updated_count += 1
+                except Exception as e:
+                    # 429 또는 RESOURCE_EXHAUSTED 에러 발생 시 즉시 중단
+                    if "RESOURCE_EXHAUSTED" in str(e) or "429" in str(e):
+                        raise RuntimeError(f"AI-503: AI 서비스 호출 중 오류 발생 ({str(e)})")
+                    print(f"멤버 {getattr(member, 'member_id', '알수없음')} 처리 중 오류: {e}")
+        print(f"총 {updated_count}명의 metadata가 갱신되었습니다.")
+        return updated_count

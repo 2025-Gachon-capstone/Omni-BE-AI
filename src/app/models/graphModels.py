@@ -53,6 +53,7 @@ class Order(StructuredNode):
     eval_set = StringProperty(choices={
         'PRIOR': 'PRIOR',
         'TRAIN': 'TRAIN',
+        'TEST': 'TEST'
     })
     order_count = IntegerProperty()
     order_dow = IntegerProperty()
