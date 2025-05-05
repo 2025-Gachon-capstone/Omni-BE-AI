@@ -56,7 +56,7 @@ class MysqlChatMessageRepository:
             "messages": [
                 {
                     "chatMessageId": msg.chat_message_id,
-                    "author": msg.author_type.value,
+                    "authorType": msg.author_type.value,
                     "content": msg.content
                 }
                 for msg in messages
