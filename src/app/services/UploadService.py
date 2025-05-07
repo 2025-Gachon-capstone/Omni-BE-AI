@@ -47,6 +47,7 @@ class UploadService:
         
     @staticmethod
     def upload_csv_to_neo4j(csv_path):
+        '''
         try:
             print("[INFO] 기존 모든 노드와 관계를 삭제합니다...")
             db.cypher_query("MATCH (n) DETACH DELETE n;")
@@ -54,7 +55,7 @@ class UploadService:
         except Exception as e:
             print(f"[ERROR] 전체 삭제 중 오류 발생: {e}")
             return
-
+        '''
         try:
             df = pd.read_csv(csv_path)
         except Exception as e:

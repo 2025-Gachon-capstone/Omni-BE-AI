@@ -1,8 +1,9 @@
 # API 테스트
-from flask import Blueprint
+from flask import Blueprint, jsonify
 from flasgger import swag_from
-
+from ..services import LearningService
 from ..services import test as test_service
+from ..services import PredictService
 
 test_routes = Blueprint("test_routes", __name__, url_prefix='/flask/v1')
 
@@ -26,3 +27,15 @@ def test():
     if isinstance(response_data, tuple):
         return response_data
     return str(response_data), 200
+
+@test_routes.route("/learning", methods=["GET"])
+def run_learning():
+    LearningService.main()
+    return "LearningService.main() 실행 완료"
+
+@test_routes.route("/predict", methods=["GET"])
+def run_predict():
+    # PredictService.evaluate_top5_precision()이 dict를 반환한다고 가정
+    result = PredictService.evaluate_top5_precision()
+    return jsonify(result)
+

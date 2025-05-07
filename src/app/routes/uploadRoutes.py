@@ -45,7 +45,7 @@ def upload_csv():
     print("ml.uploads")
     if request.method == "GET":
         try:
-            result = UploadService.upload_csv_to_neo4j("resources/csv/uploads.csv")
+            result = UploadService.upload_csv_to_neo4j("src/resources/master_dataset_test(100).csv")
             # 성공 시
             return {
                 "isSuccess": True,
