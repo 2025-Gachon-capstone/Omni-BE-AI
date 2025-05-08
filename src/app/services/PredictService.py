@@ -115,20 +115,25 @@ def evaluate_top5_precision():
         hit_count = len(set(top5_pids) & gt_pids)
         precision = hit_count / 5
         per_user.append({
-            "member_id": member_id,
-            "precision@5": precision,
-            "hit": hit_count,
-            "gt_count": len(gt_pids),
-            "top5": top5_pids,
-            "gt": list(gt_pids)
+            "member_id": int(member_id),
+            "precision@5": float(precision),
+            "hit": int(hit_count),
+            "gt_count": int(len(gt_pids)),
+            "top5": [int(pid) for pid in top5_pids],
+            "gt": [int(pid) for pid in gt_pids]
         })
         total += 1
         hit += precision
 
     result = {
-        "total_users": total,
-        "mean_precision@5": (hit/total if total > 0 else 0),
-        "per_user": per_user
+        "total_users": int(total),
+        "mean_precision@5": float(hit/total if total > 0 else 0),
+        "per_user": per_user,
+        "print_summary": f"전체 top-5 정확도(mean_precision@5): {float(hit/total if total > 0 else 0)} (total_users={int(total)})"
     }
+    print("[EVAL][정확도 평가 결과] ===============================")
+    print(result["print_summary"])
+    print("[EVAL] 개별 유저별 precision@5 평균값입니다. 상세 정보는 반환값의 'per_user'를 참고하세요.")
+    print("[EVAL] =============================================\n")
     return result
 

@@ -49,9 +49,10 @@ def main():
     u_inv = {row.mid: i for i, row in df_user.iterrows()}
     p_inv = {row.pid: i for i, row in df_prod.iterrows()}
 
-    print("② prior 구매 이력(훈련 데이터) 로드...")
+    print("② prior+test_prior 구매 이력(훈련 데이터) 로드...")
     q_prior = """
-    MATCH (m:Member)-[:ORDERED]->(:Order {eval_set:'PRIOR'})-[:CONTAINS]->(p:Product)
+    MATCH (m:Member)-[:ORDERED]->(o:Order)-[:CONTAINS]->(p:Product)
+    WHERE o.eval_set IN ['PRIOR', 'TEST_PRIOR']
     RETURN m.member_id AS mid, p.product_id AS pid
     """
     prior_pairs_raw, _ = db.cypher_query(q_prior)
@@ -103,9 +104,11 @@ def main():
         edge_label=torch.ones(data['user','buys','product'].edge_index.size(1)),
         shuffle=True, neg_sampling_ratio=1.0)
 
+    print(f"LinkNeighborLoader batch 수: {len(loader)}")
+
     opt = torch.optim.Adam(model.parameters(), lr=0.002)
     model.train()
-    for epoch in range(5):
+    for epoch in range(100):
         tot=0
         for batch in loader:
             batch = batch.to(device)
@@ -134,3 +137,11 @@ def main():
         'p_inv':       p_inv
     }, "src/resources/models/trained_graphsage_lp.pt")
     print("✔  모델과 노드 임베딩이 src/resources/models/trained_graphsage_lp.pt 에 저장되었습니다.")
+
+    # 전체 정확도 출력
+    try:
+        from src.app.services.PredictService import evaluate_top5_precision
+        result = evaluate_top5_precision()
+        print(f"전체 top-5 정확도(mean_precision@5): {result['mean_precision@5']}")
+    except Exception as e:
+        print(f"정확도 평가 중 오류 발생: {e}")
