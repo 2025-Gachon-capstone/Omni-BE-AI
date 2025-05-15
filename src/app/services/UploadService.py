@@ -12,6 +12,7 @@ from src.app.utils.normalizaiton import min_max_normalize
 host = config.NEO4J_HOST
 port = config.NEO4J_PORT
 neomodel_config.DATABASE_URL = f'bolt://{config.NEO4J_USER}:{config.DB_PASSWORD}@{host}:{port}'
+print(neomodel_config.DATABASE_URL)
 
 def safe_float(val, default=0.0): 
     try:
@@ -73,7 +74,7 @@ class UploadService:
         for idx, row in enumerate(df.itertuples(index=False), start=start_row):
             try:
                 print(f"[INFO] {idx+1}/{len(df)+start_row}번째 row 처리 중...")
-                member_id = safe_int(row[0])
+                member_id = safe_int(row.user_id)
                 member = Member.get_or_create({'member_id': member_id})[0]
                 member.predict_order_list = []
                 member.metadata = ''
