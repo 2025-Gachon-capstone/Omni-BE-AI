@@ -13,7 +13,17 @@ upload_routes = Blueprint('upload_routes', __name__, url_prefix='/flask/v1/uploa
 @swag_from({
     'tags': ['Service-Upload'],
     'summary': 'CSV 파일을 Neo4j로 업로드',
-    'description': 'resources/csv/uploads.csv 파일의 데이터를 Neo4j에 일괄 업로드합니다. 기존 노드와 관계는 모두 삭제됩니다.',
+    'description': 'resources/csv/uploads.csv 파일의 데이터를 Neo4j에 일괄 업로드합니다. 기존 노드와 관계는 모두 삭제됩니다. <br>startrow 파라미터를 통해 업로드를 시작할 행 번호(0부터 시작)를 지정할 수 있습니다.',
+    'parameters': [
+        {
+            'name': 'startrow',
+            'in': 'query',
+            'type': 'integer',
+            'required': False,
+            'default': 0,
+            'description': '업로드를 시작할 행 번호 (0부터 시작, 기본값: 0)'
+        }
+    ],
     'responses': {
         '200': {
             'description': 'Neo4j 저장 성공',
@@ -45,7 +55,8 @@ def upload_csv():
     print("ml.uploads")
     if request.method == "GET":
         try:
-            result = UploadService.upload_csv_to_neo4j("src/resources/master_dataset_test(100).csv")
+            startrow = request.args.get('startrow', default=0, type=int)
+            result = UploadService.upload_csv_to_neo4j("src/resources/master_dataset.csv", start_row=startrow)
             # 성공 시
             return {
                 "isSuccess": True,

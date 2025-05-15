@@ -46,7 +46,7 @@ class UploadService:
             return False, []
         
     @staticmethod
-    def upload_csv_to_neo4j(csv_path):
+    def upload_csv_to_neo4j(csv_path, start_row=0):
         '''
         try:
             print("[INFO] 기존 모든 노드와 관계를 삭제합니다...")
@@ -55,33 +55,34 @@ class UploadService:
         except Exception as e:
             print(f"[ERROR] 전체 삭제 중 오류 발생: {e}")
             return
+
+        # start_row: 업로드를 시작할 행 번호 (0부터 시작)
         '''
+        log_path = './resources/upload_log.txt'
+        batch_size = 10000
+        failed_rows = []
+        batch_start = start_row
+        
         try:
-            df = pd.read_csv(csv_path)
+            df = pd.read_csv(csv_path, skiprows=range(1, start_row+1))
         except Exception as e:
             print(f"[ERROR] CSV 파일을 읽는 중 오류 발생: {e}")
             return
-
-        for idx, row in df.iterrows():
+            
+        processed = 0
+        for idx, row in enumerate(df.itertuples(index=False), start=start_row):
             try:
-                print(f"[INFO] {idx+1}/{len(df)}번째 row 처리 중...")
-
-                # 1. Member 노드 생성/조회 및 속성 할당
-                member_id = safe_int(row['user_id'])
+                print(f"[INFO] {idx+1}/{len(df)+start_row}번째 row 처리 중...")
+                member_id = safe_int(row[0])
                 member = Member.get_or_create({'member_id': member_id})[0]
-                print(f"  [DEBUG] Member({member_id}) 생성/조회 완료")
-                # predict_order_list는 빈 리스트로 초기화 (나중에 모델 학습 후 채움)
                 member.predict_order_list = []
-                print(f"  [DEBUG] Member({member_id}) 생성/조회 및 속성 저장 완료")
                 member.metadata = ''
                 member.metadata_vector = []
                 member.predict_order_list = []
                 member.save()
-                
-                # 2. Product 노드 생성/조회 및 속성 할당
-                product_id = safe_int(row['product_id'])
-                product_name = str(row['product_name']) if 'product_name' in row and not pd.isna(row['product_name']) else ''
-                department = str(row['department']) if 'department' in row and not pd.isna(row['department']) else ''
+                product_id = safe_int(row[1])
+                product_name = str(row[2]) if len(row) > 2 and not pd.isna(row[2]) else ''
+                department = str(row[3]) if len(row) > 3 and not pd.isna(row[3]) else ''
                 product = Product.get_or_create({
                     'product_id': product_id,
                     'name': product_name,
@@ -91,19 +92,15 @@ class UploadService:
                 product.category_vector = get_text_embedding(department, task="카테고리 임베딩") if department else []
                 product.node_embedding = []
                 product.save()
-                print(f"  [DEBUG] Product({product_id}) 생성/조회 및 속성 저장 완료")
-
-                # 3. Order 노드 생성/조회 및 속성 할당
-                order_id = safe_int(row['order_id'])
-                # CSV의 eval_set 값을 대문자로 변환 (prior -> PRIOR, train -> TRAIN, test -> TEST)
-                eval_set_value = str(row['eval_set']).upper() if not pd.isna(row['eval_set']) else ""
-                order_count = safe_float(row['order_number'])
-                order_dow = safe_float(row['order_dow'])
-                order_hour_of_day = safe_float(row['order_hour_of_day'])
-                days_since_prior_order = safe_float(row['days_since_prior_order'])
+                order_id = safe_int(row[4])
+                eval_set_value = str(row[5]).upper() if len(row) > 5 and not pd.isna(row[5]) else ""
+                order_count = safe_float(row[6]) if len(row) > 6 else 0.0
+                order_dow = safe_float(row[7]) if len(row) > 7 else 0.0
+                order_hour_of_day = safe_float(row[8]) if len(row) > 8 else 0.0
+                days_since_prior_order = safe_float(row[9]) if len(row) > 9 else 0.0
                 order = Order.get_or_create({
                     'order_id': order_id,
-                    'eval_set': eval_set_value, # 대문자로 변환된 값 사용
+                    'eval_set': eval_set_value,
                     'order_count': order_count,
                     'order_dow': order_dow,
                     'order_hour_of_day': order_hour_of_day,
@@ -111,38 +108,50 @@ class UploadService:
                     'node_embedding': [],
                     'predict_order_list': [],
                     'next_order_list': [],
-                    'loss': 0.0  # FloatProperty는 None으로 초기화 가능
+                    'loss': 0.0
                 })[0]
-                # 정규화 값 저장 (정규화 구간은 0~1로 가정, 실제 min/max는 데이터셋에 맞게 조정 필요)
                 order.order_count_vector = min_max_normalize(order_count, 0, 1)
                 order.order_dow_vector = min_max_normalize(order_dow, 0, 1)
                 order.order_hour_of_day_vector = min_max_normalize(order_hour_of_day, 0, 1)
                 order.days_since_prior_order_vector = min_max_normalize(days_since_prior_order, 0, 1)
                 order.save()
-                print(f"  [DEBUG] Order({order_id}) 생성/조회 및 속성 저장 완료")
-
-                # 4. Member-Order 관계 생성
                 if not member.ordered.is_connected(order):
                     member.ordered.connect(order)
                     print(f"  [DEBUG] Member({member_id})-ORDERED->Order({order_id}) 관계 생성 완료")
                 else:
                     print(f"  [DEBUG] Member({member_id})-ORDERED->Order({order_id}) 이미 연결됨")
-
-                # 5. Order-Product(Contains) 관계 생성 (속성 포함)
-                add_to_cart_order = safe_float(row['add_to_cart_order'])
-                reordered = bool(safe_int(row['reordered']))
+                add_to_cart_order = safe_float(row[10]) if len(row) > 10 else 0.0
+                reordered = bool(safe_int(row[11])) if len(row) > 11 else False
                 if not order.contains.is_connected(product):
                     order.contains.connect(product, {
                         'add_to_cart_order': add_to_cart_order,
                         'reordered': reordered
                     })
-                    print(f"  [DEBUG] Order({order_id})-CONTAINS->Product({product_id}) 관계 생성 완료")
-                else:
-                    print(f"  [DEBUG] Order({order_id})-CONTAINS->Product({product_id}) 이미 연결됨")
             except NeomodelException as ne:
                 print(f"[ERROR] Neo4j 작업 중 오류 발생: {ne}")
                 print("[TIP] Neo4j 서버가 실행 중인지, 연결 정보가 올바른지 확인하세요.")
-                return
+                failed_rows.append(idx+1)
             except Exception as e:
                 print(f"[ERROR] {idx+1}번째 row 처리 중 예외 발생: {e}")
-                continue
+                failed_rows.append(idx+1)
+            processed += 1
+            # 10000개 단위로 로그 기록
+            if processed % batch_size == 0:
+                batch_end = idx + 1
+                with open(log_path, 'a', encoding='utf-8') as f:
+                    f.write(f"[{batch_start+1} ~ {batch_end}번째 행 작업 기록]\n")
+                    if failed_rows:
+                        f.write("실패한 행: " + ", ".join(map(str, failed_rows)) + "\n\n")
+                    else:
+                        f.write("실패한 행: (없음)\n\n")
+                batch_start = batch_end
+                failed_rows = []
+        # 마지막 남은 구간도 기록
+        if processed % batch_size != 0:
+            batch_end = start_row + processed
+            with open(log_path, 'a', encoding='utf-8') as f:
+                f.write(f"[{batch_start+1} ~ {batch_end}번째 행 작업 기록]\n")
+                if failed_rows:
+                    f.write("실패한 행: " + ", ".join(map(str, failed_rows)) + "\n\n")
+                else:
+                    f.write("실패한 행: (없음)\n\n")
