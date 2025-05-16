@@ -14,6 +14,16 @@ upload_routes = Blueprint('upload_routes', __name__, url_prefix='/flask/v1/uploa
     'tags': ['Service-Upload'],
     'summary': 'CSV 파일을 Neo4j로 업로드',
     'description': 'resources/csv/uploads.csv 파일의 데이터를 Neo4j에 일괄 업로드합니다. 기존 노드와 관계는 모두 삭제됩니다.',
+    'parameters': [
+        {
+            'name': 'start_index',
+            'in': 'query',
+            'type': 'integer',
+            'required': False,
+            'default': 0,
+            'description': '데이터 업로드를 시작할 행 번호 (0부터 시작)'
+        }
+    ],
     'responses': {
         '200': {
             'description': 'Neo4j 저장 성공',
@@ -23,7 +33,8 @@ upload_routes = Blueprint('upload_routes', __name__, url_prefix='/flask/v1/uploa
                     'isSuccess': {'type': 'boolean', 'example': True},
                     'code': {'type': 'string', 'example': 'FLASK-200'},
                     'message': {'type': 'string', 'example': '업로드 완료'},
-                    'timestamp': {'type': 'string', 'format': 'date-time'}
+                    'timestamp': {'type': 'string', 'format': 'date-time'},
+                    'start_index': {'type': 'integer', 'example': 0}
                 }
             }
         },
@@ -45,13 +56,17 @@ def upload_csv():
     print("ml.uploads")
     if request.method == "GET":
         try:
-            result = UploadService.upload_csv_to_neo4j("resources/csv/uploads.csv")
+            # start_index 파라미터 가져오기 (기본값 0)
+            start_index = request.args.get('start_index', default=0, type=int)
+            
+            result = UploadService.upload_csv_to_neo4j("resources/csv/uploads.csv", start_index=start_index)
             # 성공 시
             return {
                 "isSuccess": True,
                 "code": "FLASK-200",
                 "message": "업로드 완료",
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now().isoformat(),
+                "start_index": start_index
             }, 200
         except Exception as e:
             # 실패 시
