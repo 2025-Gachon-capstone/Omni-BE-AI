@@ -49,3 +49,4 @@ desktop.ini
 ./src/resources/master_dataset.csv
 ./src/resources/master_dataset_head(100).csv
 ./src/resources/test_master_dataset.csv
+./src/resources/*.csv
