@@ -4,7 +4,6 @@ from src.app.models.graphModels import Member, Product, Order, Benefit, Sponsor
 from neomodel.exceptions import NeomodelException
 from neomodel import config as neomodel_config
 from src.app.config import config  # config/__init__.py에서 config 객체를 export함
-from neomodel import db  # Cypher 쿼리 실행을 위해 추가
 from src.app.utils.text_embedding import get_text_embedding
 from src.app.utils.normalizaiton import min_max_normalize
 
@@ -47,13 +46,13 @@ class UploadService:
         
     @staticmethod
     def upload_csv_to_neo4j(csv_path):
-        try:
-            print("[INFO] 기존 모든 노드와 관계를 삭제합니다...")
-            db.cypher_query("MATCH (n) DETACH DELETE n;")
-            print("[INFO] 삭제 완료. 데이터 업로드를 시작합니다.")
-        except Exception as e:
-            print(f"[ERROR] 전체 삭제 중 오류 발생: {e}")
-            return
+        # try:
+        #     print("[INFO] 기존 모든 노드와 관계를 삭제합니다...")
+        #     db.cypher_query("MATCH (n) DETACH DELETE n;")
+        #     print("[INFO] 삭제 완료. 데이터 업로드를 시작합니다.")
+        # except Exception as e:
+        #     print(f"[ERROR] 전체 삭제 중 오류 발생: {e}")
+        #     return
 
         try:
             df = pd.read_csv(csv_path)
