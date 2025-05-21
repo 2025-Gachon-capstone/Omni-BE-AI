@@ -20,12 +20,12 @@ class Neo4jOrderRepository:
                 days_since_prior_order=order_info.get("daysSincePrior"),
                 order_dow=order_info.get("orderDow"),
                 order_hour_of_day=order_info.get("orderHour"),
-                order_count=order_info.get("orderCount"),
+                order_number=order_info.get("orderCount"),
                 
-                days_since_prior_order_vector=order_info_normalized.get("daysSincePrior"),
-                order_dow_vector=order_info_normalized.get("orderDow"),
-                order_hour_of_day_vector=order_info_normalized.get("orderHour"),
-                order_count_vector=order_info_normalized.get("orderCount"),
+                days_since_prior_order_norm=order_info_normalized.get("daysSincePrior"),
+                order_dow_norm=order_info_normalized.get("orderDow"),
+                order_hour_of_day_norm=order_info_normalized.get("orderHour"),
+                order_number_norm=order_info_normalized.get("orderCount"),
 
                 predict_order_list=order_info_normalized.get("predict_order_list")
             ).save()
@@ -138,16 +138,45 @@ class Neo4jOrderRepository:
         return None
     
     @staticmethod
-    def create_next_order_relations()->bool:
-        query = """
-            MATCH (m:Member)-[:ORDERED]->(o:Order)
-            WITH m, o
-            ORDER BY m.member_id, o.order_count
-            WITH m.member_id AS member_id, collect(o) AS orders
-            UNWIND range(0, size(orders) - 2) AS idx
-            WITH member_id, orders[idx] AS fromOrder, orders[idx + 1] AS toOrder
-            MERGE (fromOrder)-[:NEXT]->(toOrder)
-            RETURN DISTINCT member_id
+    def create_next_order_relations(batch_size=100) -> list[str]:
+        member_ids = []
+        while True:
+            query = """
+                MATCH (m:Member)-[:ORDERED]->(o:Order)
+                WHERE NOT (o)-[:NEXT]->(:Order)
+                WITH m, o
+                ORDER BY m.member_id, o.order_number
+                WITH m, collect(o) AS orders
+                WHERE size(orders) > 1
+                WITH m.member_id AS member_id, orders
+                LIMIT $limit
+                UNWIND range(0, size(orders) - 2) AS idx
+                WITH member_id, orders[idx] AS fromOrder, orders[idx + 1] AS toOrder
+                MERGE (fromOrder)-[:NEXT]->(toOrder)
+                RETURN DISTINCT member_id
             """
-        results, _ = db.cypher_query(query)
-        return [row[0] for row in results]  # 리스트 형태로 member_id 반환
+            params = {"limit": batch_size}
+            results, _ = db.cypher_query(query, params)
+            if not results:
+                break
+            member_ids.extend([row[0] for row in results])
+        return member_ids
+
+    @staticmethod
+    def delete_next_relations_in_batches(batch_size=100):
+        total_deleted = 0
+        while True:
+            query = """
+                MATCH ()-[r:NEXT]->()
+                WITH r LIMIT $limit
+                DELETE r
+                RETURN count(r) AS deleted_count
+            """
+            params = {"limit": batch_size}
+            results, _ = db.cypher_query(query, params)
+            deleted = results[0][0] if results else 0
+            total_deleted += deleted
+            print(f"Deleted {deleted} NEXT relations (Total: {total_deleted})")
+            if deleted < batch_size:
+                break
+
