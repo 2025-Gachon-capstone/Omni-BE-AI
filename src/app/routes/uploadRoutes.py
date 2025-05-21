@@ -153,9 +153,37 @@ def create_metadata():
     }
 })
 def create_next_edges():
-    success = UploadService.setup_next_relations()
-    return {
-        "isSuccess": success,
-        "message": "NEXT 관계 생성 완료" if success else "NEXT 관계 생성 실패"
-    }, 200
+    result = UploadService.setup_next_relations()
+    return result
 
+@upload_routes.delete("/orders/next-edges")
+@swag_from({
+    'tags': ['Service-Upload'],
+    'summary': 'Order 간 NEXT 관계 전체 삭제',
+    'description': 'Neo4j에 저장된 NEXT간선을 배치로 전체 삭제합니다.',
+    'responses': {
+        '200': {
+            'description': 'NEXT 삭제 여부',
+            'schema': {
+                'type': 'object',
+                'properties': {
+                    'isSuccess': {'type': 'boolean', 'example': True},
+                    'message': {'type': 'string', 'example': 'NEXT 삭제 완료'}
+                }
+            }
+        },
+        '500': {
+            'description': 'NEXT 삭제 실패',
+            'schema': {
+                'type': 'object',
+                'properties': {
+                    'isSuccess': {'type': 'boolean', 'example': False},
+                    'message': {'type': 'string', 'example': 'NEXT 관계 생성 실패: 오류 메시지'}
+                }
+            }
+        }
+    }
+})
+def delete_next_edges():
+    result = UploadService.delete_next_relations()
+    return result

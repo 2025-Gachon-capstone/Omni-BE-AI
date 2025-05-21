@@ -4,6 +4,7 @@ from src.app.models.graphModels import Member, Product, Order, Benefit, Sponsor
 from neomodel.exceptions import NeomodelException
 from neomodel import config as neomodel_config
 from src.app.config import config  # config/__init__.py에서 config 객체를 export함
+from src.app.utils import ts
 from src.app.utils.text_embedding import get_text_embedding
 from src.app.utils.normalizaiton import min_max_normalize
 
@@ -35,14 +36,71 @@ class UploadService:
     @staticmethod
     def setup_next_relations() -> bool:
         try:
-            member_ids = Neo4jOrderRepository.create_next_order_relations()
-            print(f"[SUCCESS] 관계 생성된 멤버 수: {len(member_ids)}")
-            for mid in member_ids:
-                print(f" - member_id: {mid}")
-            return True, member_ids
+            total_count = 0
+            batch_num = 1
+
+            while True:
+                member_ids = Neo4jOrderRepository.create_next_order_relations()
+                count = len(member_ids)
+
+                if count == 0:
+                    print("[INFO] 더 이상 생성할 NEXT 관계가 없습니다.")
+                    break
+
+                total_count += count
+                print(f"[BATCH {batch_num}] 생성된 멤버 수: {count}")
+                batch_num += 1
+
+            print(f"[SUCCESS] 전체 NEXT 관계 생성 완료 — 총 {batch_num - 1}회 배치, 총 멤버 수: {total_count}")
+            return {
+                "isSuccess": True,
+                "code": "NEO4J-200",
+                "message": "NEXT 관계 생성 완료",
+                "timestamp": ts(),
+            }, 200
+
         except Exception as e:
-            print(f"[ERROR] NEXT 관계 생성 실패: {e}")
-            return False, []
+            print(f"[ERROR] NEXT 관계 생성 중 예외 발생: {e}")
+            return {
+                "isSuccess": False,
+                "code": "NETWORK-ERR",
+                "message": f"Neo4j DB 통신 실패: {e}",
+                "timestamp": ts(),
+            }, 500
+        
+    @staticmethod
+    def delete_next_relations() -> bool:
+        try:
+            total_deleted = 0
+            batch_num = 1
+            batch_size = 100  # 필요시 조절 가능
+
+            while True:
+                deleted = Neo4jOrderRepository.delete_next_relations_in_batches(batch_size=batch_size)
+                if deleted == 0:
+                    print("[INFO] 더 이상 삭제할 NEXT 관계가 없습니다.")
+                    break
+
+                total_deleted += deleted
+                print(f"[BATCH {batch_num}] 삭제된 NEXT 수: {deleted}")
+                batch_num += 1
+
+            print(f"[SUCCESS] 전체 NEXT 관계 삭제 완료 — 총 {batch_num - 1}회 배치, 총 삭제 수: {total_deleted}")
+            return {
+                "isSuccess": True,
+                "code": "NEO4J-202",
+                "message": "NEXT 관계 삭제 완료",
+                "timestamp": ts(),
+            }, 202
+
+        except Exception as e:
+            print(f"[ERROR] NEXT 관계 삭제 중 예외 발생: {e}")
+            return {
+                "isSuccess": False,
+                "code": "NETWORK-ERR",
+                "message": f"Neo4j DB 통신 실패: {e}",
+                "timestamp": ts(),
+            }, 500
         
     @staticmethod
     def upload_csv_to_neo4j(csv_path):
@@ -95,14 +153,14 @@ class UploadService:
                 order_id = safe_int(row['order_id'])
                 # CSV의 eval_set 값을 대문자로 변환 (prior -> PRIOR, train -> TRAIN, test -> TEST)
                 eval_set_value = str(row['eval_set']).upper() if not pd.isna(row['eval_set']) else ""
-                order_count = safe_float(row['order_number'])
+                order_number = safe_float(row['order_number'])
                 order_dow = safe_float(row['order_dow'])
                 order_hour_of_day = safe_float(row['order_hour_of_day'])
                 days_since_prior_order = safe_float(row['days_since_prior_order'])
                 order = Order.get_or_create({
                     'order_id': order_id,
                     'eval_set': eval_set_value, # 대문자로 변환된 값 사용
-                    'order_count': order_count,
+                    'order_number': order_number,
                     'order_dow': order_dow,
                     'order_hour_of_day': order_hour_of_day,
                     'days_since_prior_order': days_since_prior_order,
@@ -112,10 +170,10 @@ class UploadService:
                     'loss': 0.0  # FloatProperty는 None으로 초기화 가능
                 })[0]
                 # 정규화 값 저장 (정규화 구간은 0~1로 가정, 실제 min/max는 데이터셋에 맞게 조정 필요)
-                order.order_count_vector = min_max_normalize(order_count, 0, 1)
-                order.order_dow_vector = min_max_normalize(order_dow, 0, 1)
-                order.order_hour_of_day_vector = min_max_normalize(order_hour_of_day, 0, 1)
-                order.days_since_prior_order_vector = min_max_normalize(days_since_prior_order, 0, 1)
+                order.order_number_norm = min_max_normalize(order_number, 0, 1)
+                order.order_dow_norm = min_max_normalize(order_dow, 0, 1)
+                order.order_hour_of_day_norm = min_max_normalize(order_hour_of_day, 0, 1)
+                order.days_since_prior_order_norm = min_max_normalize(days_since_prior_order, 0, 1)
                 order.save()
                 print(f"  [DEBUG] Order({order_id}) 생성/조회 및 속성 저장 완료")
 

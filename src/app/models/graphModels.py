@@ -55,15 +55,15 @@ class Order(StructuredNode):
         'TRAIN': 'TRAIN',
         'TEST': 'TEST'
     })
-    order_count = IntegerProperty()
+    order_number = IntegerProperty()
     order_dow = IntegerProperty()
     order_hour_of_day = IntegerProperty()
     days_since_prior_order = IntegerProperty()
 
-    order_count_vector = FloatProperty() # min-max정규화
-    order_dow_vector = FloatProperty() # min-max
-    order_hour_of_day_vector = FloatProperty() # min-max
-    days_since_prior_order_vector = FloatProperty() # min-max
+    order_count_norm = FloatProperty() # min-max정규화
+    order_dow_norm = FloatProperty() # min-max
+    order_hour_of_day_norm = FloatProperty() # min-max
+    days_since_prior_order_norm = FloatProperty() # min-max
     node_embedding = ArrayProperty(FloatProperty())
 
     '''
