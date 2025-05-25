@@ -134,6 +134,7 @@ class Neo4jOrderRepository:
     
     @staticmethod
     def get_recent_orders_for_product(product_id: int, limit: int = 5):
+        # TODO: product_id도 str로 변경 필요
         query = """
         MATCH (p:Product {product_id: $product_id})<-[:CONTAINS]-(o:Order)
         RETURN o

@@ -1,5 +1,4 @@
 import json
-from neomodel import db as neo4j_db
 
 from ..repositories.neo4j.MemberRepository import Neo4jMemberRepository
 from ..repositories.neo4j.ProductRepository import Neo4jProductRepository

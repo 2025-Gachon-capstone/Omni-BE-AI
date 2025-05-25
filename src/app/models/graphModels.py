@@ -12,7 +12,7 @@ class ContainsRel(StructuredRel):
     add_to_cart_order = FloatProperty()
 
 class Sponsor(StructuredNode):
-    sponsor_id = IntegerProperty(unique_index=True)
+    sponsor_id = StringProperty(unique_index=True)
     name = StringProperty()
 
     name_vector = ArrayProperty(FloatProperty())  # 텍스트 임베딩 저장    
@@ -21,7 +21,7 @@ class Sponsor(StructuredNode):
     issues = RelationshipTo('Benefit', 'ISSUES')
 
 class Benefit(StructuredNode):
-    benefit_id = IntegerProperty(unique_index=True)
+    benefit_id = StringProperty(unique_index=True)
     title = StringProperty()
     target_product = StringProperty()
     target_member = StringProperty()
@@ -37,6 +37,7 @@ class Benefit(StructuredNode):
     issued_by = RelationshipFrom('Sponsor', 'ISSUES')
 
 class Product(StructuredNode):
+    #TODO: product_id를 str로 변경 필요
     product_id = IntegerProperty(unique_index=True)
     name = StringProperty()
     category = StringProperty()

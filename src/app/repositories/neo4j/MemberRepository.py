@@ -8,7 +8,8 @@ from neomodel import db
 class Neo4jMemberRepository:
 
     @staticmethod
-    def create_member_if_not_exist(member_id: int) -> Neo4jMember:
+    def create_member_if_not_exist(member_id: str) -> Neo4jMember:
+        member_id = str(member_id)  # Ensure member_id is a string
         member = Neo4jMember.nodes.get_or_none(member_id=member_id)
         if not member:
             member = Neo4jMember(member_id=member_id).save()

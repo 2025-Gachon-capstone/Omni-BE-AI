@@ -42,6 +42,8 @@ class MysqlOrderRepository:
                     continue
                 order_info[col] = first_row[index]
 
+            order_info["orderId"] = str(order_info.get("orderId"))  # orderId를 문자열로 변환
+            
             # 나머지 행에서 주문 아이템 정보 추출
             print('//--------------------테스트------------------//')
             print(f'result-length: {len(result)}')
@@ -62,4 +64,4 @@ class MysqlOrderRepository:
 
                 print(f'product: {product}, order: {order_item}')
 
-            return member_id, order_info, order_items, products
+            return str(member_id), order_info, order_items, products
