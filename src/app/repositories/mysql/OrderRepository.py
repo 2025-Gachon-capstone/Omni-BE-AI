@@ -51,7 +51,7 @@ class MysqlOrderRepository:
             for row in result:
                 row_dict = dict(zip(column_names, row))  # 컬럼 이름과 값을 딕셔너리로 매핑
                 product = {
-                    "productId": row_dict.get("productId"),
+                    "productId": str(row_dict.get("productId")), # productId를 문자열로 변환
                     "productName": row_dict.get("productName"),
                     "category": row_dict.get("categoryName")
                 }

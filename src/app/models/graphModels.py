@@ -37,8 +37,7 @@ class Benefit(StructuredNode):
     issued_by = RelationshipFrom('Sponsor', 'ISSUES')
 
 class Product(StructuredNode):
-    #TODO: product_id를 str로 변경 필요
-    product_id = IntegerProperty(unique_index=True)
+    product_id = StringProperty(unique_index=True)
     name = StringProperty()
     category = StringProperty()
 

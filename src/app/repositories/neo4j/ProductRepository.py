@@ -9,7 +9,7 @@ class Neo4jProductRepository:
 
     @staticmethod
     def create_product_if_not_exist(product_mysql: dict, product_name_vecotor: List[float], product_category_vecotor: List[float]) -> Neo4jProduct:
-        product_id = product_mysql.get("productId")
+        product_id = str(product_mysql.get("productId"))
         product = Neo4jProduct.nodes.get_or_none(product_id=product_id)
 
         if not product:
