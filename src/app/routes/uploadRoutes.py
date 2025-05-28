@@ -67,6 +67,15 @@ def upload_csv():
     'tags': ['Service-Upload'],
     'summary': '모든 멤버 metadata 일괄 갱신',
     'description': 'Neo4j에 저장된 모든 멤버의 최근 5개 주문을 기반으로 Gemini를 활용해 metadata를 일괄 갱신합니다. 이미 metadata가 존재하는 멤버는 건너뜁니다.',
+    'parameters': [
+        {
+            'name': 'max_count',
+            'in': 'query',
+            'type': 'integer',
+            'required': False,
+            'description': '최대 갱신할 멤버 수 (기본값: 100)'
+        }
+    ],
     'responses': {
         '200': {
             'description': 'metadata 일괄 갱신 성공',
@@ -104,25 +113,24 @@ def upload_csv():
     }
 })
 def create_metadata():
-    print("ml.metadata")
-    if request.method == "GET":
-        try:
-            updated_count = OrderService.update_every_member_metadata_by_gemini()
-            return {"isSuccess": True, "updated_count": updated_count}, 200
-        except RuntimeError as e:
-            # AI 서비스 호출 중단(429 등) 발생 시 503 반환
-            return {
-                "isSuccess": False,
-                "code": "AI-503",
-                "message": str(e),
-                "timestamp": datetime.now().isoformat(),
-                "result": None
-            }, 503
-        except Exception as e:
-            return {
-                "isSuccess": False,
-                "message": f"metadata 갱신 중 오류 발생: {str(e)}"
-            }, 500
+    try:
+        max_count = request.args.get("max_count", default=100, type=int)
+        updated_count = OrderService.update_every_member_metadata_by_gemini(max_count=max_count)
+        return {"isSuccess": True, "updated_count": updated_count}, 200
+    except RuntimeError as e:
+        # AI 서비스 호출 중단(429 등) 발생 시 503 반환
+        return {
+            "isSuccess": False,
+            "code": "AI-503",
+            "message": str(e),
+            "timestamp": datetime.now().isoformat(),
+            "result": None
+        }, 503
+    except Exception as e:
+        return {
+            "isSuccess": False,
+            "message": f"metadata 갱신 중 오류 발생: {str(e)}"
+        }, 500
 
 @upload_routes.patch("/orders/create-next-edges")
 @swag_from({

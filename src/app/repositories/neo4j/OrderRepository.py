@@ -32,7 +32,7 @@ class Neo4jOrderRepository:
         return order
 
     @staticmethod
-    def get_previous_order(member: Neo4jMember, new_order_id: int) -> Neo4jOrder:
+    def get_previous_order(member: Neo4jMember, new_order_id: str) -> Neo4jOrder:
         try:
             query = """
             MATCH (m:Member {member_id: $member_id})-[:ORDERED]->(o:Order)
@@ -41,10 +41,30 @@ class Neo4jOrderRepository:
             """
             print(f'주문한 유저 id: {member.member_id}')
             results, _ = db.cypher_query(query, {
-                "member_id": member.member_id,
-                "new_order_id": new_order_id
+                "member_id":  str(member.member_id),
+                "new_order_id": str(new_order_id)
             })
 
+            if results:
+                return Neo4jOrder.inflate(results[0][0])
+            return None
+        except Exception as e:
+            print(f"Error in get_previous_order: {e}")
+            return None
+        
+    @staticmethod
+    def get_last_order(member: Neo4jMember) -> Neo4jOrder:
+        try:
+            query = """
+            MATCH (m:Member {member_id: $member_id})-[:ORDERED]->(o:Order)
+            WHERE NOT (o)-[:NEXT]->(:Order)
+            RETURN o ORDER BY o.order_number DESC LIMIT 1
+            """
+            print(f'주문한 유저 id: {member.member_id}')
+            results, _ = db.cypher_query(query, {
+                "member_id":  str(member.member_id)
+            })
+            print(f'last_order: {results}')
             if results:
                 return Neo4jOrder.inflate(results[0][0])
             return None
@@ -113,14 +133,14 @@ class Neo4jOrderRepository:
         return orders if orders else None
     
     @staticmethod
-    def get_recent_orders_for_product(product_id: int, limit: int = 5):
+    def get_recent_orders_for_product(product_id: str, limit: int = 5):
         query = """
         MATCH (p:Product {product_id: $product_id})<-[:CONTAINS]-(o:Order)
         RETURN o
         ORDER BY o.order_id DESC
         LIMIT $limit
         """
-        results, meta = db.cypher_query(query, {"product_id": product_id, "limit": limit})
+        results, meta = db.cypher_query(query, {"product_id": str(product_id), "limit": limit})
         if not results:
             return []
         return [Neo4jOrder.inflate(row[0]) for row in results]
@@ -132,7 +152,7 @@ class Neo4jOrderRepository:
         RETURN prev
         LIMIT 1
         """
-        results, _ = db.cypher_query(query, {"order_id": order.order_id})
+        results, _ = db.cypher_query(query, {"order_id": str(order.order_id)})
         if results:
             return Neo4jOrder.inflate(results[0][0])
         return None

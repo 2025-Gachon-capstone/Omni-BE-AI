@@ -12,7 +12,7 @@ class ContainsRel(StructuredRel):
     add_to_cart_order = FloatProperty()
 
 class Sponsor(StructuredNode):
-    sponsor_id = IntegerProperty(unique_index=True)
+    sponsor_id = StringProperty(unique_index=True)
     name = StringProperty()
 
     name_vector = ArrayProperty(FloatProperty())  # 텍스트 임베딩 저장    
@@ -21,7 +21,7 @@ class Sponsor(StructuredNode):
     issues = RelationshipTo('Benefit', 'ISSUES')
 
 class Benefit(StructuredNode):
-    benefit_id = IntegerProperty(unique_index=True)
+    benefit_id = StringProperty(unique_index=True)
     title = StringProperty()
     target_product = StringProperty()
     target_member = StringProperty()
@@ -37,7 +37,7 @@ class Benefit(StructuredNode):
     issued_by = RelationshipFrom('Sponsor', 'ISSUES')
 
 class Product(StructuredNode):
-    product_id = IntegerProperty(unique_index=True)
+    product_id = StringProperty(unique_index=True)
     name = StringProperty()
     category = StringProperty()
 
@@ -49,11 +49,14 @@ class Product(StructuredNode):
     discounted_by = RelationshipFrom('Benefit', 'DISCOUNTS')
 
 class Order(StructuredNode):
-    order_id = IntegerProperty(unique_index=True)
+    order_id = StringProperty(unique_index=True)
     eval_set = StringProperty(choices={
         'PRIOR': 'PRIOR',
         'TRAIN': 'TRAIN',
-        'TEST': 'TEST'
+        'TEST': 'TEST',
+        'prior': 'prior',
+        'train': 'train',
+        'test': 'test'
     })
     order_number = IntegerProperty()
     order_dow = IntegerProperty()
@@ -81,7 +84,7 @@ class Order(StructuredNode):
 
 
 class Member(StructuredNode):
-    member_id = IntegerProperty(unique_index=True)
+    member_id = StringProperty(unique_index=True)
     metadata = StringProperty()
 
     metadata_vector = ArrayProperty(FloatProperty())

@@ -8,7 +8,8 @@ from neomodel import db
 class Neo4jMemberRepository:
 
     @staticmethod
-    def create_member_if_not_exist(member_id: int) -> Neo4jMember:
+    def create_member_if_not_exist(member_id: str) -> Neo4jMember:
+        member_id = str(member_id)  # Ensure member_id is a string
         member = Neo4jMember.nodes.get_or_none(member_id=member_id)
         if not member:
             member = Neo4jMember(member_id=member_id).save()
@@ -118,3 +119,28 @@ class Neo4jMemberRepository:
         Neo4j에 저장된 모든 멤버 노드를 반환합니다.
         """
         return Neo4jMember.nodes.all()
+    
+    @staticmethod
+    def get_members_without_metadata(limit: int = 10, skip: int = 0):
+        """
+        metadata가 없거나 빈 문자열인 멤버를 페이징 방식으로 조회
+        """
+        try:
+            query =f"""
+            MATCH (m:Member)
+            WHERE m.metadata IS NULL OR m.metadata = ''
+            RETURN m
+            SKIP $skip
+            LIMIT $limit
+            """
+            results, _ = db.cypher_query(query, {
+                "skip": skip,
+                "limit": limit
+            })
+            print(f"no_metadata_member_count: {len(results)}")
+            if results:
+                return [Neo4jMember.inflate(row[0]) for row in results]
+            return None
+        except Exception as e:
+            print(f"Error in get_members_without_metadata: {e}")
+            return None

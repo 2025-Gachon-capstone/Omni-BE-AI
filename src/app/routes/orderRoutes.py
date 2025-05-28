@@ -60,5 +60,5 @@ order_routes = Blueprint('order_routes', __name__, url_prefix='/flask/v1/orders'
 })
 def post_order(order_id):
     # order_id가 없으면 매칭이 안되므로 에러 리턴 처리할 필요가 없음
-    return OrderService.post_order_with_items(order_id)
+    return OrderService.post_order_with_items(str(order_id))
 
