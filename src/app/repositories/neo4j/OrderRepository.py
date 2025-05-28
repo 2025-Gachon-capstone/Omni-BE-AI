@@ -133,15 +133,14 @@ class Neo4jOrderRepository:
         return orders if orders else None
     
     @staticmethod
-    def get_recent_orders_for_product(product_id: int, limit: int = 5):
-        # TODO: product_id도 str로 변경 필요
+    def get_recent_orders_for_product(product_id: str, limit: int = 5):
         query = """
         MATCH (p:Product {product_id: $product_id})<-[:CONTAINS]-(o:Order)
         RETURN o
         ORDER BY o.order_id DESC
         LIMIT $limit
         """
-        results, meta = db.cypher_query(query, {"product_id": product_id, "limit": limit})
+        results, meta = db.cypher_query(query, {"product_id": str(product_id), "limit": limit})
         if not results:
             return []
         return [Neo4jOrder.inflate(row[0]) for row in results]
