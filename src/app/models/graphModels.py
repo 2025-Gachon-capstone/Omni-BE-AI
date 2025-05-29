@@ -58,6 +58,25 @@ class Order(StructuredNode):
         'train': 'train',
         'test': 'test'
     })
+
+    role_train = StringProperty(choices={
+        'PRIOR': 'PRIOR',
+        'TRAIN': 'TRAIN',
+        'TEST': 'TEST',
+        'prior': 'prior',
+        'train': 'train',
+        'test': 'test'
+    })
+
+    role_test = StringProperty(choices={
+        'PRIOR': 'PRIOR',
+        'TRAIN': 'TRAIN',
+        'TEST': 'TEST',
+        'prior': 'prior',
+        'train': 'train',
+        'test': 'test'
+    })
+
     order_number = IntegerProperty()
     order_dow = IntegerProperty()
     order_hour_of_day = IntegerProperty()
