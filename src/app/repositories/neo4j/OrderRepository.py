@@ -51,7 +51,45 @@ class Neo4jOrderRepository:
         except Exception as e:
             print(f"Error in get_previous_order: {e}")
             return None
-        
+    
+    @staticmethod
+    def get_avg_predict_vector_from_previous_orders(product_ids: list[str], order_limit: int = 5):
+
+        try:
+            query =  """
+            UNWIND $product_ids AS pid
+            MATCH (p:Product {product_id: pid})<-[:CONTAINS]-(o:Order)
+            WITH o
+            ORDER BY o.order_id DESC
+            WITH o
+            LIMIT $order_limit
+            MATCH (prev:Order)-[:NEXT]->(o)
+            WHERE prev.predict_order_list IS NOT NULL
+            WITH collect(prev.predict_order_list) AS vectors, collect(prev.order_id) AS order_ids
+            UNWIND range(0, size(vectors[0]) - 1) AS i
+            RETURN 
+            [sum(v[i]) FOR v IN vectors] AS summed_vector, 
+            size(vectors) AS count,
+            order_ids
+            """
+
+            results, _ = db.cypher_query(query, {
+                "product_ids": product_ids,
+                "order_limit": order_limit
+            })
+
+            if results:
+                summed, count, order_ids = results[0]
+                avg_vector = [x / count for x in summed]
+                print(f'order_ids: {order_ids}')
+                return avg_vector
+            return None
+            return None
+        except Exception as e:
+            print(f"Error in get_previous_order: {e}")
+            return None
+
+
     @staticmethod
     def get_last_order(member: Neo4jMember) -> Neo4jOrder:
         try:
@@ -111,26 +149,26 @@ class Neo4jOrderRepository:
 
         return orders
     
-    @staticmethod
-    def get_orders_before_product(products: list[Neo4jProduct]) -> list[Neo4jOrder]:
-        """
-        유사한 여러 상품 리스트에 대해 해당 상품이 포함된 주문의 이전 주문들을 모두 수집
-        """
-        orders = []
+    # @staticmethod
+    # def get_orders_before_product(products: list[Neo4jProduct]) -> list[Neo4jOrder]:
+    #     """
+    #     유사한 여러 상품 리스트에 대해 해당 상품이 포함된 주문의 이전 주문들을 모두 수집
+    #     """
+    #     orders = []
         
-        for product in products:
-             # 이 상품이 포함된 최근 주문들
-            recent_orders = Neo4jOrderRepository.get_recent_orders_for_product(product.product_id)
-            if not recent_orders:
-                continue
+    #     for product in products:
+    #          # 이 상품이 포함된 최근 주문들
+    #         recent_orders = Neo4jOrderRepository.get_recent_orders_for_product(product.product_id)
+    #         if not recent_orders:
+    #             continue
             
-            for order in recent_orders:
-                # 각 주문의 이전 주문 가져오기
-                prev_order = Neo4jOrderRepository.get_previous_order_for_order(order)
-                if prev_order:
-                    orders.append(prev_order)
+    #         for order in recent_orders:
+    #             # 각 주문의 이전 주문 가져오기
+    #             prev_order = Neo4jOrderRepository.get_previous_order_for_order(order)
+    #             if prev_order:
+    #                 orders.append(prev_order)
 
-        return orders if orders else None
+    #     return orders if orders else None
     
     @staticmethod
     def get_recent_orders_for_product(product_id: str, limit: int = 5):
