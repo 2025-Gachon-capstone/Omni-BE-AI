@@ -65,7 +65,9 @@ class Order(StructuredNode):
         'TEST': 'TEST',
         'prior': 'prior',
         'train': 'train',
-        'test': 'test'
+        'test': 'test',
+        'IGN': 'IGN',
+        'ign': 'ign'
     })
 
     role_test = StringProperty(choices={
@@ -74,7 +76,9 @@ class Order(StructuredNode):
         'TEST': 'TEST',
         'prior': 'prior',
         'train': 'train',
-        'test': 'test'
+        'test': 'test',
+        'IGN': 'IGN',
+        'ign': 'ign'
     })
 
     order_number = IntegerProperty()
