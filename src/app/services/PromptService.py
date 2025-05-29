@@ -294,7 +294,7 @@ class PromptService:
             f"\n\n추가로, 사용자의 최근 대화 기록은 다음과 같습니다:\n"
             f"{history_str}\n\n"
             f"이전 문맥과 일관되게 답변해주세요."
-            f"문단이 나뉘는 부분은 문단 기호(\\n\\n)로 구분해주세요.\n"
+            f"문단이 나뉘는 부분은 문단 기호(\\n)로 구분해주세요.\n"
         )
         print(f'prompt: {prompt}')
 
