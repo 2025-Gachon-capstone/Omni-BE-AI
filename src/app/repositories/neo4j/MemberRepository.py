@@ -39,16 +39,10 @@ class Neo4jMemberRepository:
     @staticmethod
     def find_members_by_predict_order(product_ids: list[str], top_k: int = 5, batch_size: int = 100) -> dict:
         """
-        Jaccard 유사도로 상/중/하 그룹을 실시간 유지하며 유사 회원 탐색
+        match_count 상/중/하 그룹을 실시간 유지하며 유사 회원 탐색
         """
         ScoredMember = namedtuple("ScoredMember", ["score", "member_id", "metadata"])
-        SCORE_THRESHOLD = 0.2  # 유의미하다고 간주할 최소 유사도
-
-        def jaccard(a, b):
-            sa, sb = set(str(x) for x in a), set(str(x) for x in b)
-            inter = sa & sb
-            union = sa | sb
-            return len(inter) / len(union) if union else 0.0
+        MATCH_THRESHOLD = 2  # 유의미하다고 간주할 최소 유사도
 
         offset = 0
         high_heap = []  # min-heap → 낮은 점수 제거
@@ -58,48 +52,51 @@ class Neo4jMemberRepository:
             query = """
             MATCH (m:Member)
             WHERE m.predict_order_list IS NOT NULL
-            RETURN m.member_id AS member_id, m.metadata AS metadata, m.predict_order_list AS predict_order_list
+            WITH m,
+                size([p IN $product_ids WHERE p IN m.predict_order_list]) AS match_count
+            WHERE match_count > 0
+            RETURN m.member_id AS member_id,
+                m.metadata AS metadata,
+                m.predict_order_list AS predict_order_list,
+                match_count
+            ORDER BY match_count DESC
             SKIP $skip LIMIT $limit
             """
             results, _ = db.cypher_query(query, {
                 "skip": offset,
-                "limit": batch_size
+                "limit": batch_size,
+                "product_ids": product_ids
             })
 
             if not results:
                 print(f"조회된 결과가 없습니다. 총 조회된 오프셋: {offset}")
                 break
 
-            for member_id, metadata, predict_order_list in results:
+            for member_id, metadata, predict_order_list, match_count in results:
+                print(f"🔍 {member_id} - 유사도: {match_count}, 주문예측: {predict_order_list}")
+                scored = ScoredMember(match_count, member_id, metadata)
 
-                score = jaccard(product_ids, predict_order_list)
-                if score <= 0.0:
-                    continue
-
-                print(f"🔍 {member_id}의 Jaccard 유사도: {score:.4f}, predict_order_list: {predict_order_list}")
-                scored = ScoredMember(score, member_id, metadata)
-
-                if score > SCORE_THRESHOLD:
+                if match_count > MATCH_THRESHOLD:
                     # High group
-                    heapq.heappush(high_heap, (score, scored))
+                    heapq.heappush(high_heap, (match_count, scored))
                     if len(high_heap) > top_k:
                         heapq.heappop(high_heap)
                 else:
                     # Low group
-                    heapq.heappush(low_heap, (-score, scored))
+                    heapq.heappush(low_heap, (-match_count, scored))
                     if len(low_heap) > top_k:
                         heapq.heappop(low_heap)                         
 
             offset += batch_size
 
-        # 정렬 후 실제 member 정보를 dict로 추출
-        high_group = [{"member_id": s.member_id, "metadata": s.metadata, "score": s.score} for _, s in sorted(high_heap, key=lambda x: -x[0])]
-        low_group = [{"member_id": s.member_id, "metadata": s.metadata, "score": s.score} for _, s in sorted(low_heap, key=lambda x: x[0])]
-
+        # 정렬 후 결과 구성
+        high_group = [{"member_id": s.member_id, "metadata": s.metadata, "score": s.score}
+                    for _, s in sorted(high_heap, key=lambda x: -x[0])]
+        low_group = [{"member_id": s.member_id, "metadata": s.metadata, "score": s.score}
+                    for _, s in sorted(low_heap, key=lambda x: x[0])]
 
         print(f"🔝 상위 {top_k}: {[m['member_id'] for m in high_group]}")
         print(f"🔻 하위 {top_k}: {[m['member_id'] for m in low_group]}")
-
 
         return high_group, low_group
         
