@@ -219,34 +219,26 @@ class PromptService:
 
             print(f'step2: {matched_product_names}')
 
-
-            # 3. 해당 상품을 포함한 주문 → 그 이전 주문 찾기
             product_ids = [p.product_id for p in matched_products]
-            avg_predict_order_list = Neo4jOrderRepository.get_avg_predict_vector_from_previous_orders(product_ids)
-            if not avg_predict_order_list:
-                return None, "AI-404: 관련된 주문 경로가 없습니다."
-            
-            print(f'step3: {avg_predict_order_list}')
-            if not avg_predict_order_list:
-                 prompt = PromptService.compose_rag_prompt(benefit, user_message, matched_product_names)
-                 return post_gemini(prompt)
-
-            # 5. 유사한 회원 탐색
-            matched_members = Neo4jMemberRepository.find_members_by_predict_order(avg_predict_order_list, top_k=5)
-            if not matched_members:
-                return None, "AI-404: 유사한 고객을 찾을 수 없습니다."
-            print(f'step4: {matched_members}')
+            # 3. product_ids를 기준으로 predict_order_list 안에 해당 product가 포함된 Member 탐색
+            high, mid, low = Neo4jMemberRepository.find_members_by_predict_order(product_ids, top_k=5)
+            if not high and not mid and not low:
+                return None, "AI-404: 관련 상품을 주문하려는 고객을 찾을 수 없습니다."
         
 
-            # 6. 고객 metadata_text 수집
-            context_chunks = [m.metadata for m in matched_members if m.metadata]
+            # 4. 고객 metadata 수집
+            context_chunks = []
+            for group_label, group in [("구매가능성이 높은 구매자", high), ("구매가능성이 보통인 구매자", mid), ("구매가능성이 낮은 구매자", low)]:
+                group_meta = [
+                    f"[{group_label}] {m['metadata']}"
+                    for m in group if m.get("metadata")
+                ]
+                if not group_meta:
+                    print(f"⚠️ {group_label} 그룹에 유효한 metadata 없음")
+                context_chunks.extend(group_meta)
+
             if not context_chunks:
                 return None, "AI-404: 고객 설명이 없습니다."
-            
-            print(f'step6: {context_chunks}')
-            if not context_chunks:
-                 prompt = PromptService.compose_rag_prompt(benefit, user_message, matched_product_names)
-                 return post_gemini(prompt)
 
             # 7. 프롬프트 구성
             prompt = PromptService.compose_rag_prompt(benefit, user_message, matched_product_names, context_chunks)
@@ -302,6 +294,7 @@ class PromptService:
             f"\n\n추가로, 사용자의 최근 대화 기록은 다음과 같습니다:\n"
             f"{history_str}\n\n"
             f"이전 문맥과 일관되게 답변해주세요."
+            f"문단이 나뉘는 부분은 문단 기호(\\n\\n)로 구분해주세요.\n"
         )
         print(f'prompt: {prompt}')
 
