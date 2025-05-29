@@ -221,7 +221,8 @@ class PromptService:
 
 
             # 3. 해당 상품을 포함한 주문 → 그 이전 주문 찾기
-            avg_predict_order_list = Neo4jOrderRepository.get_avg_predict_vector_from_previous_orders(matched_products)
+            product_ids = [p.product_id for p in matched_products]
+            avg_predict_order_list = Neo4jOrderRepository.get_avg_predict_vector_from_previous_orders(product_ids)
             if not avg_predict_order_list:
                 return None, "AI-404: 관련된 주문 경로가 없습니다."
             
