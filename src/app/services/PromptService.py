@@ -221,14 +221,14 @@ class PromptService:
 
             product_ids = [p.product_id for p in matched_products]
             # 3. product_ids를 기준으로 predict_order_list 안에 해당 product가 포함된 Member 탐색
-            high, mid, low = Neo4jMemberRepository.find_members_by_predict_order(product_ids, top_k=5)
-            if not high and not mid and not low:
+            high, low = Neo4jMemberRepository.find_members_by_predict_order(product_ids, top_k=5)
+            if not high and not low:
                 return None, "AI-404: 관련 상품을 주문하려는 고객을 찾을 수 없습니다."
         
 
             # 4. 고객 metadata 수집
             context_chunks = []
-            for group_label, group in [("구매가능성이 높은 구매자", high), ("구매가능성이 보통인 구매자", mid), ("구매가능성이 낮은 구매자", low)]:
+            for group_label, group in [("구매가능성이 높은 구매자", high), ("구매가능성이 낮은 구매자", low)]:
                 group_meta = [
                     f"[{group_label}] {m['metadata']}"
                     for m in group if m.get("metadata")
