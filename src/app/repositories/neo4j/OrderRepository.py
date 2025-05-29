@@ -13,9 +13,27 @@ class Neo4jOrderRepository:
         order = Neo4jOrder.nodes.get_or_none(order_id=order_info['orderId'])
         print(f'order: {order}')
         if not order:
+            eval_set_value = order_info.get("status")
+            role_train_value = None
+            role_test_value = None
+
+            # 유저별 이전 주문 : 학습 시 훈련 데이터
+            if eval_set_value == 'prior':
+                role_train_value = 'prior'
+                role_test_value = 'ign'
+            # 유저별 마지막 주문 : 학습 시 정답
+            elif eval_set_value == 'train':
+                role_train_value = 'ign'
+                role_test_value = 'train'
+            else: # 기본값 : ign(ignore), 학습/검증에 사용하지 않음
+                role_train_value = 'ign'
+                role_test_value = 'ign'
+
             order = Neo4jOrder(
                 order_id=order_info.get("orderId"),
-                eval_set=order_info.get("status"),
+                eval_set=eval_set_value,
+                role_train=role_train_value,
+                role_test=role_test_value,
 
                 days_since_prior_order=order_info.get("daysSincePrior"),
                 order_dow=order_info.get("orderDow"),
