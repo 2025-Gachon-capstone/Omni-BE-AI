@@ -1,3 +1,4 @@
+from collections import Counter
 from typing import List, Optional
 from ...models import Order as Neo4jOrder, Member as Neo4jMember, Product as Neo4jProduct
 from ...utils.neo4j import safe_connect
@@ -69,44 +70,6 @@ class Neo4jOrderRepository:
         except Exception as e:
             print(f"Error in get_previous_order: {e}")
             return None
-    
-    @staticmethod
-    def get_avg_predict_vector_from_previous_orders(product_ids: list[str], order_limit: int = 5):
-
-        try:
-            query =  """
-            UNWIND $product_ids AS pid
-            MATCH (p:Product {product_id: pid})<-[:CONTAINS]-(o:Order)
-            WITH o
-            ORDER BY o.order_id DESC
-            WITH o
-            LIMIT $order_limit
-            MATCH (prev:Order)-[:NEXT]->(o)
-            WHERE prev.predict_order_list IS NOT NULL
-            WITH collect(prev.predict_order_list) AS vectors, collect(prev.order_id) AS order_ids
-            UNWIND range(0, size(vectors[0]) - 1) AS i
-            RETURN 
-            [sum(v[i]) FOR v IN vectors] AS summed_vector, 
-            size(vectors) AS count,
-            order_ids
-            """
-
-            results, _ = db.cypher_query(query, {
-                "product_ids": product_ids,
-                "order_limit": order_limit
-            })
-
-            if results:
-                summed, count, order_ids = results[0]
-                avg_vector = [x / count for x in summed]
-                print(f'order_ids: {order_ids}')
-                return avg_vector
-            return None
-            return None
-        except Exception as e:
-            print(f"Error in get_previous_order: {e}")
-            return None
-
 
     @staticmethod
     def get_last_order(member: Neo4jMember) -> Neo4jOrder:
