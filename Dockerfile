@@ -31,4 +31,4 @@ COPY . .
 EXPOSE 5000
 
 # 실행 명령 (gunicorn으로 실행, run.py 기준)
-CMD ["sh", "-c", "gunicorn src.app.run:app --bind 0.0.0.0:5000"]
+CMD ["sh", "-c", "gunicorn src.app.run:app --bind 0.0.0.0:5000 --timeout 120"]
