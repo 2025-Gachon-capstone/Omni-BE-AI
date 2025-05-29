@@ -22,6 +22,7 @@ client = genai.Client(http_options=HttpOptions(api_version="v1"))
 
 def clean_ai_response(text: str) -> str:
     # 포맷팅 문자를 제거하고 깔끔한 텍스트로 변환
+    text = text.replace("\\n", "\n")
     return re.sub(r'\*\*|\*', '', text).strip()
 
 def post_gemini(user_message: str) -> tuple[str | None, str | None]:
