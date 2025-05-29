@@ -15,8 +15,8 @@ class Sponsor(StructuredNode):
     sponsor_id = StringProperty(unique_index=True)
     name = StringProperty()
 
-    name_vector = ArrayProperty(FloatProperty())  # 텍스트 임베딩 저장    
-    node_vector = ArrayProperty(FloatProperty()) # 그래프 세이지 임베딩 저장
+    name_vector = ArrayProperty(FloatProperty(), serialize=False)  # 텍스트 임베딩 저장    
+    node_vector = ArrayProperty(FloatProperty(), serialize=False) # 그래프 세이지 임베딩 저장
     
     issues = RelationshipTo('Benefit', 'ISSUES')
 
@@ -41,9 +41,9 @@ class Product(StructuredNode):
     name = StringProperty()
     category = StringProperty()
 
-    name_vector = ArrayProperty(FloatProperty())  # 텍스트 임베딩 저장
-    category_vector = ArrayProperty(FloatProperty()) # 텍스트 임베딩 저장
-    node_embedding = ArrayProperty(FloatProperty())
+    name_vector = ArrayProperty(FloatProperty(), serialize=False)  # 텍스트 임베딩 저장
+    category_vector = ArrayProperty(FloatProperty(), serialize=False) # 텍스트 임베딩 저장
+    node_embedding = ArrayProperty(FloatProperty(), serialize=False)
     
     contained_by = RelationshipFrom('Order', 'CONTAINS')
     discounted_by = RelationshipFrom('Benefit', 'DISCOUNTS')
@@ -63,18 +63,18 @@ class Order(StructuredNode):
     order_hour_of_day = IntegerProperty()
     days_since_prior_order = IntegerProperty()
 
-    order_count_norm = FloatProperty() # min-max정규화
-    order_dow_norm = FloatProperty() # min-max
-    order_hour_of_day_norm = FloatProperty() # min-max
-    days_since_prior_order_norm = FloatProperty() # min-max
-    node_embedding = ArrayProperty(FloatProperty())
+    order_count_norm = FloatProperty( serialize=False ) # min-max정규화
+    order_dow_norm = FloatProperty( serialize=False ) # min-max
+    order_hour_of_day_norm = FloatProperty( serialize=False) # min-max
+    days_since_prior_order_norm = FloatProperty( serialize=False) # min-max
+    node_embedding = ArrayProperty(FloatProperty(), serialize=False)
 
     '''
     다음 주문내역(next_order_list)의 그래프 세이지 임베딩
     주의 : '다음 주문내역 = 다음 주문서 + 구매한 모든 상품 리스트'
     '''
-    predict_order_list = ArrayProperty(FloatProperty()) # 다음 구매 내역 예측
-    next_order_list = ArrayProperty(FloatProperty()) # 실제 다음 구매 내역
+    predict_order_list = ArrayProperty(FloatProperty(), serialize=False) # 다음 구매 내역 예측
+    next_order_list = ArrayProperty(FloatProperty(), serialize=False) # 실제 다음 구매 내역
     loss = FloatProperty() # 예측 - 실제
     
     next_to = RelationshipTo('Order', 'NEXT')
@@ -87,7 +87,7 @@ class Member(StructuredNode):
     member_id = StringProperty(unique_index=True)
     metadata = StringProperty()
 
-    metadata_vector = ArrayProperty(FloatProperty())
-    predict_order_list = ArrayProperty(FloatProperty()) # 아직 구매하지 않은 다음 구매내역의 벡터화
+    metadata_vector = ArrayProperty(FloatProperty(),  serialize=False)
+    predict_order_list = ArrayProperty(FloatProperty(),  serialize=False) # 아직 구매하지 않은 다음 구매내역의 벡터화
 
     ordered = RelationshipTo('Order', 'ORDERED')

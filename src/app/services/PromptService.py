@@ -214,46 +214,34 @@ class PromptService:
             # 2. 유사한 상품 노드 탐색
             matched_products = Neo4jProductRepository.find_products_by_name_vector(name_vector)
             matched_product_names = [p.name for p in matched_products if hasattr(p, 'name')]
-            # if not matched_products:
-            #     return None, "AI-404: 유사한 상품을 찾을 수 없습니다."
+            if not matched_products:
+                return None, "AI-404: 유사한 상품을 찾을 수 없습니다."
 
             print(f'step2: {matched_product_names}')
 
 
             # 3. 해당 상품을 포함한 주문 → 그 이전 주문 찾기
-            orders = Neo4jOrderRepository.get_orders_before_product(matched_products)
-            # if not orders:
-            #     return None, "AI-404: 관련된 주문 경로가 없습니다."
+            avg_predict_order_list = Neo4jOrderRepository.get_avg_predict_vector_from_previous_orders(matched_products)
+            if not avg_predict_order_list:
+                return None, "AI-404: 관련된 주문 경로가 없습니다."
             
-            print(f'step3: {orders}')
-            if not orders:
+            print(f'step3: {avg_predict_order_list}')
+            if not avg_predict_order_list:
                  prompt = PromptService.compose_rag_prompt(benefit, user_message, matched_product_names)
                  return post_gemini(prompt)
-            
-            # 4. 해당 주문들의 predict_order_list 추출
-            predict_vectors = [o.predict_order_list for o in orders if o.predict_order_list]
-            # if not predict_vectors:
-            #     return None, "AI-404: 예측값이 없습니다."
-            print(f'step4: {len(predict_vectors)}')
-            if not predict_vectors:
-                 prompt = PromptService.compose_rag_prompt(benefit, user_message, matched_product_names)
-                 return post_gemini(prompt)
-
 
             # 5. 유사한 회원 탐색
-            matched_members = Neo4jMemberRepository.find_members_by_predict_order(predict_vectors, top_k=5)
-            # if not matched_members:
-            #     return None, "AI-404: 유사한 고객을 찾을 수 없습니다."
-            print(f'step5: {matched_members}')
-            if not predict_vectors:
-                 prompt = PromptService.compose_rag_prompt(benefit, user_message, matched_product_names)
-                 return post_gemini(prompt)
+            matched_members = Neo4jMemberRepository.find_members_by_predict_order(avg_predict_order_list, top_k=5)
+            if not matched_members:
+                return None, "AI-404: 유사한 고객을 찾을 수 없습니다."
+            print(f'step4: {matched_members}')
         
 
             # 6. 고객 metadata_text 수집
             context_chunks = [m.metadata for m in matched_members if m.metadata]
-            # if not context_chunks:
-            #     return None, "AI-404: 고객 설명이 없습니다."
+            if not context_chunks:
+                return None, "AI-404: 고객 설명이 없습니다."
+            
             print(f'step6: {context_chunks}')
             if not context_chunks:
                  prompt = PromptService.compose_rag_prompt(benefit, user_message, matched_product_names)
