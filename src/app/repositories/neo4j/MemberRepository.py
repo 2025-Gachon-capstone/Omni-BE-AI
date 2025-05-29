@@ -42,6 +42,7 @@ class Neo4jMemberRepository:
         Jaccard 유사도로 상/중/하 그룹을 실시간 유지하며 유사 회원 탐색
         """
         ScoredMember = namedtuple("ScoredMember", ["score", "member_id", "metadata"])
+        SCORE_THRESHOLD = 0.2  # 유의미하다고 간주할 최소 유사도
 
         def jaccard(a, b):
             sa, sb = set(str(x) for x in a), set(str(x) for x in b)
@@ -72,21 +73,22 @@ class Neo4jMemberRepository:
             for member_id, metadata, predict_order_list in results:
 
                 score = jaccard(product_ids, predict_order_list)
-                if score == 0.0:
+                if score <= 0.0:
                     continue
 
                 print(f"🔍 {member_id}의 Jaccard 유사도: {score:.4f}, predict_order_list: {predict_order_list}")
                 scored = ScoredMember(score, member_id, metadata)
 
-                # High group 유지
-                heapq.heappush(high_heap, (score, scored))
-                if len(high_heap) > top_k:
-                    heapq.heappop(high_heap)
-
-                # Low group 유지
-                heapq.heappush(low_heap, (-score, scored))  # 음수로 넣어서 max-heap처럼 사용
-                if len(low_heap) > top_k:
-                    heapq.heappop(low_heap)                          
+                if score > SCORE_THRESHOLD:
+                    # High group
+                    heapq.heappush(high_heap, (score, scored))
+                    if len(high_heap) > top_k:
+                        heapq.heappop(high_heap)
+                else:
+                    # Low group
+                    heapq.heappush(low_heap, (-score, scored))
+                    if len(low_heap) > top_k:
+                        heapq.heappop(low_heap)                         
 
             offset += batch_size
 
