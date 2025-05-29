@@ -1,10 +1,8 @@
 from collections import namedtuple
 import heapq
-from typing import List
 
 import numpy as np
 from ...models import Member as Neo4jMember
-from ...utils.neo4j import safe_connect
 from neomodel import db
 
 class Neo4jMemberRepository:
@@ -39,7 +37,7 @@ class Neo4jMemberRepository:
 
     
     @staticmethod
-    def find_members_by_predict_order(product_ids: list[str], top_k: int = 5, batch_size: int = 500) -> dict:
+    def find_members_by_predict_order(product_ids: list[str], top_k: int = 5, batch_size: int = 100) -> dict:
         """
         Jaccard 유사도로 상/중/하 그룹을 실시간 유지하며 유사 회원 탐색
         """
@@ -54,13 +52,12 @@ class Neo4jMemberRepository:
         offset = 0
         high_heap = []  # min-heap → 낮은 점수 제거
         low_heap = []   # max-heap → 높은 점수 제거 (음수 사용)
-        mid_heap = []   # 가운데 유지
 
         while True:
             query = """
             MATCH (m:Member)
             WHERE m.predict_order_list IS NOT NULL
-            RETURN m, m.predict_order_list AS predict_order_list
+            RETURN m.member_id AS member_id, m.metadata AS metadata, m.predict_order_list AS predict_order_list
             SKIP $skip LIMIT $limit
             """
             results, _ = db.cypher_query(query, {
@@ -72,16 +69,14 @@ class Neo4jMemberRepository:
                 print(f"조회된 결과가 없습니다. 총 조회된 오프셋: {offset}")
                 break
 
-            for member_node, predict_order_list in results:
-                member = Neo4jMember.inflate(member_node)
-                member.predict_order_list = predict_order_list or []
+            for member_id, metadata, predict_order_list in results:
 
                 score = jaccard(product_ids, predict_order_list)
                 if score == 0.0:
                     continue
 
-                print(f"🔍 {member.member_id}의 Jaccard 유사도: {score:.4f}, predict_order_list: {predict_order_list}")
-                scored = ScoredMember(score, member.member_id, member.metadata)
+                print(f"🔍 {member_id}의 Jaccard 유사도: {score:.4f}, predict_order_list: {predict_order_list}")
+                scored = ScoredMember(score, member_id, metadata)
 
                 # High group 유지
                 heapq.heappush(high_heap, (score, scored))
@@ -91,32 +86,20 @@ class Neo4jMemberRepository:
                 # Low group 유지
                 heapq.heappush(low_heap, (-score, scored))  # 음수로 넣어서 max-heap처럼 사용
                 if len(low_heap) > top_k:
-                    heapq.heappop(low_heap)
-
-                # Mid group 유지: 너무 높거나 낮은 score 제거
-                if len(mid_heap) < top_k:
-                    mid_heap.append(scored)
-                else:
-                    mid_heap.sort(key=lambda x: x.score)
-                    if scored.score < mid_heap[0].score or scored.score > mid_heap[-1].score:
-                        continue  # 너무 높거나 낮은건 제외
-                    mid_heap.pop()
-                    mid_heap.append(scored)                
+                    heapq.heappop(low_heap)                          
 
             offset += batch_size
 
         # 정렬 후 실제 member 정보를 dict로 추출
         high_group = [{"member_id": s.member_id, "metadata": s.metadata, "score": s.score} for _, s in sorted(high_heap, key=lambda x: -x[0])]
         low_group = [{"member_id": s.member_id, "metadata": s.metadata, "score": s.score} for _, s in sorted(low_heap, key=lambda x: x[0])]
-        mid_group = [{"member_id": s.member_id, "metadata": s.metadata, "score": s.score} for s in sorted(mid_heap, key=lambda x: -x.score)]
 
 
         print(f"🔝 상위 {top_k}: {[m['member_id'] for m in high_group]}")
-        print(f"😐 중간 {top_k}: {[m['member_id'] for m in mid_group]}")
         print(f"🔻 하위 {top_k}: {[m['member_id'] for m in low_group]}")
 
 
-        return high_group, mid_group, low_group
+        return high_group, low_group
         
         
     @staticmethod
