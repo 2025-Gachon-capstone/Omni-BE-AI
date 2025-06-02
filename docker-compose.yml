@@ -1,0 +1,20 @@
+services:
+  web:
+    build: 
+      context: .
+      dockerfile: Dockerfile.local
+    ports:
+      - "8000:8000" # 호스트의 5001번 포트를 컨테이너의 8000번 포트에 매핑합니다.
+    volumes:
+      - .:/app # 현재 디렉토리를 컨테이너의 /app 디렉토리에 마운트합니다.
+    environment:
+      PYTHONUNBUFFERED: 1
+      FLASK_APP: src/app/run.py
+      FLASK_DEBUG: 1 # 개발 모드 활성화
+      TZ: Asia/Seoul
+    # command: ["flask", "run", "--host=0.0.0.0"]
+    # 또는 gunicorn을 사용하려면 아래 주석을 해제하세요.
+    command: sh -c "
+      pip install -r requirements.txt &&
+      gunicorn src.app.run:app -b 0.0.0.0:8000
+      "

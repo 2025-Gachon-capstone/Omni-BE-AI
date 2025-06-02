@@ -1,0 +1,241 @@
+import json
+<<<<<<< HEAD
+from neomodel import db as neo4j_db
+=======
+>>>>>>> bfb0f725114b66322e31b7805753f7784badc2f2
+
+from ..repositories.neo4j.MemberRepository import Neo4jMemberRepository
+from ..repositories.neo4j.ProductRepository import Neo4jProductRepository
+from ..repositories.mysql.OrderRepository import MysqlOrderRepository
+from ..repositories.neo4j.OrderRepository import Neo4jOrderRepository
+
+from ..utils.gemini import post_gemini
+from ..utils.text_embedding import get_text_embedding
+from ..utils.neo4j import safe_connect
+from ..utils.normalizaiton import min_max_normalize
+
+from ..utils import ts
+
+from ..config import config
+
+# Neo4j 연결 설정 (app 설정에 따라 변경 필요)
+
+class OrderService:
+
+    @staticmethod
+<<<<<<< HEAD
+    def post_order_with_items(order_id: int) -> tuple[str, int]:
+=======
+    def post_order_with_items(order_id: str) -> tuple[str, int]:
+>>>>>>> bfb0f725114b66322e31b7805753f7784badc2f2
+        '''
+        주문서 및 주문내역 조회 후 Neo4j에 저장하고 이전 주문과 연결
+        '''
+        try:
+            order_data = MysqlOrderRepository.get_order_with_items(order_id)
+
+            if not order_data:
+                body = {
+                    "isSuccess": False,
+                    "code": "MYSQL-404",
+                    "message": f"주문 ID '{order_id}'에 해당하는 주문을 찾을 수 없습니다.",
+                    "timestamp": ts(),
+                }
+                print(json.dumps(body, ensure_ascii=False, indent=2, default=str))
+                return body, 404
+
+            member_id, order_info, order_items, products = order_data
+
+            # Neo4j에 저장
+            try:
+                neo4j_member = Neo4jMemberRepository.create_member_if_not_exist(member_id)
+                
+                order_info_normalized = {
+                    # 우선은 0~1로 정규화, 숫자가 클수록 편차가 모델에 미치는 영향이 커짐.
+                    "orderId": order_info.get("orderId"),
+                    "daysSincePrior": min_max_normalize(order_info.get("daysSincePrior"), 0, 1),
+                    "orderDow": min_max_normalize(order_info.get("orderDow"), 0, 1),
+                    "orderHour": min_max_normalize(order_info.get("orderHour"), 0, 1),
+                    "orderCount": min_max_normalize(order_info.get("orderCount"), 0, 1),
+                    "predict_order_list": [0.1] #TODO: graphSAGE 예측
+                }
+                
+                previous_order = Neo4jOrderRepository.get_previous_order(neo4j_member, order_id)
+                new_order = Neo4jOrderRepository.create_order_if_not_exist(
+                        order_info=order_info, 
+                        order_info_normalized=order_info_normalized
+                )
+                safe_connect(neo4j_member.ordered, new_order)
+
+                for item, product in zip(order_items, products):
+                    product_name=product.get("productName")
+                    category=product.get("category")
+                    print(f'name: {product_name}')
+                    print(f'category: {category}')
+                    product_name_vector = get_text_embedding(product.get("productName"))
+                    product_category_vector = get_text_embedding(product.get("category"))
+
+                    new_product = Neo4jProductRepository.create_product_if_not_exist(
+                        product,
+                        product_name_vector,
+                        product_category_vector
+                    )
+                    safe_connect(
+                        rel_manager=new_order.contains,
+                        target_node=new_product,
+                        add_to_cart_order=item["addToCartOrder"],
+                        reordered= (item["reordered"] == 1)
+                    )
+
+                # 이전 주문 찾아서 next_order_list 저장 및 연결
+                if previous_order:
+                    new_product_embedding = [0.1] #TODO: graphSAGE 임베딩
+                    Neo4jOrderRepository.update_previous_order(previous_order, new_order, new_product_embedding)
+                
+                Neo4jMemberRepository.update_member_fields(neo4j_member, {"predict_order_list": order_info_normalized.get("predict_order_list")})
+                metadata = OrderService.update_member_metadata_by_gemini(neo4j_member, new_order)
+
+                body = {
+                    "isSuccess": True,
+                    "code": "FLASK-200",
+                    "message": f"주문 ID '{order_info.get('orderId')}' 저장 및 이전 주문 업데이트 성공",
+                    "timestamp": ts(),
+                    "result": {
+                        "metadata": metadata
+                    }
+                }
+                print(json.dumps(body, ensure_ascii=False, indent=2, default=str))
+                return body, 200
+
+            except Exception as neo4j_error:
+                body = {
+                    "isSuccess": False,
+                    "code": "NEO4J-500",
+                    "message": f"Neo4j 저장 오류: {str(neo4j_error)}",
+                    "timestamp": ts(),
+                }
+                print(json.dumps(body, ensure_ascii=False, indent=2, default=str))
+                return body, 500
+
+        except Exception as e:
+            body = {
+                "isSuccess": False,
+                "code": "FLASK-500",
+                "message": f"서버 오류: {str(e)}",
+                "timestamp": ts(),
+            }
+            print(json.dumps(body, ensure_ascii=False, indent=2, default=str))
+            return body, 500
+        
+    @staticmethod
+    def update_member_metadata_by_gemini(member, last_node):
+<<<<<<< HEAD
+        orders = Neo4jOrderRepository.get_last_n_orders(last_node, 5)
+=======
+        orders = Neo4jOrderRepository.get_last_n_orders(last_node, 4)
+>>>>>>> bfb0f725114b66322e31b7805753f7784badc2f2
+        if not orders:
+            return
+
+        summaries = []
+        weekday_names = ['일', '월', '화', '수', '목', '금', '토']
+        summaries = []
+        for order in orders:
+            products = order.contains.all()
+            product_names = [getattr(p, 'name', '이름없음') for p in products]
+            categories = [getattr(p, 'category', '분류없음') for p in products]
+            unique_categories = list(dict.fromkeys(categories))  # ✅ 순서 유지하며 중복 제거
+
+            product_names_str = ', '.join(product_names) if product_names else '없음'
+            unique_categories_str = ', '.join(unique_categories) if unique_categories else '없음'
+
+            weekday = weekday_names[order.order_dow % 7] if isinstance(order.order_dow, int) else "알수없음"
+
+            summaries.append(
+                f"- 구매 요일: {weekday}요일\n"
+                f"- 구매 시간: {order.order_hour_of_day}시\n"
+                f"- 상품명: {product_names_str}\n"
+                f"- 카테고리: {unique_categories_str}\n"
+            )
+
+        prompt = "다음은 한 고객의 최근 구매 내역입니다. 이 고객의 구매 성향을 2줄 이내의 한글로 요약해 주세요.\n\n"
+        prompt += "\n\n".join(summaries)
+        print(prompt)
+
+        metadata, message = post_gemini(prompt)
+
+        if message:
+            raise ConnectionError(message)
+
+        metadata_vector = get_text_embedding(metadata)
+        print(f'metadata_vector_len: {len(metadata_vector)}')
+
+        Neo4jMemberRepository.update_member_fields(member, {
+            "metadata": metadata,
+            "metadata_vector": metadata_vector
+        })
+
+        return metadata
+
+    @staticmethod
+<<<<<<< HEAD
+    def update_every_member_metadata_by_gemini():
+        """
+        모든 멤버에 대해 최근 5개 주문을 기준으로 Gemini 기반 metadata 갱신
+        이미 metadata가 존재하는 멤버는 제외 (빈 문자열도 제외)
+        """
+        members = Neo4jMemberRepository.get_all_members()
+        updated_count = 0
+        for member in members:
+            # 이미 metadata가 존재하면 건너뜀 (빈 문자열도 포함)
+            if getattr(member, 'metadata', None) not in [None, '']:
+                print(f"멤버 {getattr(member, 'member_id', '알수없음')}는 이미 metadata가 존재하여 건너뜁니다.")
+                continue
+            # 멤버의 가장 최근 주문(Order) 노드를 먼저 찾음
+            last_order = Neo4jOrderRepository.get_previous_order(member, 999999999)
+            if last_order:
+                try:
+                    # 가장 최근 주문을 기준으로 5개 주문을 가져와 metadata 갱신
+                    OrderService.update_member_metadata_by_gemini(member, last_order)
+                    updated_count += 1
+                except Exception as e:
+                    # 429 또는 RESOURCE_EXHAUSTED 에러 발생 시 즉시 중단
+                    if "RESOURCE_EXHAUSTED" in str(e) or "429" in str(e):
+                        raise RuntimeError(f"AI-503: AI 서비스 호출 중 오류 발생 ({str(e)})")
+                    print(f"멤버 {getattr(member, 'member_id', '알수없음')} 처리 중 오류: {e}")
+=======
+    def update_every_member_metadata_by_gemini(max_count: int):
+        """
+        metadata가 없는 멤버를 최대 max_count명까지 Gemini 기반으로 갱신
+        한 번에 100명씩 페이징 조회하며 순차 처리
+        """
+        updated_count = 0
+        batch_size = 10
+        skip = 0
+
+        while updated_count < max_count:
+            members = Neo4jMemberRepository.get_members_without_metadata(limit=batch_size, skip=skip)
+            if not members:
+                break  # 더 이상 처리할 멤버 없음
+
+            for member in members:
+                if getattr(member, 'metadata', None) not in [None, '']:
+                    continue
+
+                last_order = Neo4jOrderRepository.get_last_order(member)
+                if last_order:
+                    try:
+                        OrderService.update_member_metadata_by_gemini(member, last_order)
+                        updated_count += 1
+                        if updated_count >= max_count:
+                            break
+                    except Exception as e:
+                        if "RESOURCE_EXHAUSTED" in str(e) or "429" in str(e):
+                            raise RuntimeError(f"AI-503: AI 서비스 호출 중 오류 발생 ({str(e)})")
+                        print(f"멤버 {getattr(member, 'member_id', '알수없음')} 처리 중 오류: {e}")
+            print(f"현재 {updated_count}명의 metadata가 갱신되었습니다.")
+            skip += batch_size  # 다음 batch 조회를 위해 skip 증가
+
+>>>>>>> bfb0f725114b66322e31b7805753f7784badc2f2
+        print(f"총 {updated_count}명의 metadata가 갱신되었습니다.")
+        return updated_count
