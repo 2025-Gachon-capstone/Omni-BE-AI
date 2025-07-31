@@ -1,3 +1,4 @@
+from typing import Any, Dict, Generator
 from sqlalchemy import text
 from ...utils import db
 
@@ -65,3 +66,81 @@ class MysqlOrderRepository:
                 print(f'product: {product}, order: {order_item}')
 
             return str(member_id), order_info, order_items, products
+    
+    @staticmethod
+    def get_orders_by_product_id_old(product_id: int, limit: int =100) -> list:
+        """
+        특정 상품 ID에 해당하는 주문 목록을 조회합니다.
+        기존 fetchall 방식 (모두 로드): 115.8872초 소요
+        """
+        with db.engine.connect() as connection:
+            sql = text(
+                """
+                SELECT
+                    o.orderId, o.orderDow, o.orderHour, o.createdAt,
+                    oi.reordered,
+                    p.productId,
+                    p.productName
+                FROM (
+                    SELECT DISTINCT oi2.order_id
+                    FROM OrderItem oi2
+                    WHERE oi2.productId = :product_id
+                    LIMIT :limit
+                ) AS limited_orders
+                JOIN Orders o ON o.orderId = limited_orders.order_id
+                JOIN OrderItem oi ON oi.order_id = o.orderId
+                JOIN Product p ON p.productId = oi.productId
+                WHERE oi.productId != :product_id
+                ORDER BY o.createdAt DESC
+                LIMIT :limit
+                """
+            )
+            result = connection.execute(sql, {"product_id": product_id, "limit": limit}).fetchall()            
+
+            # 각 row를 딕셔너리로 변환
+            return [dict(row._mapping) for row in result]
+        
+    @staticmethod
+    def get_orders_by_product_id(product_id: int, limit: int =100) -> Generator[Dict[str, Any], None, None]:
+        """
+        특정 상품 ID에 해당하는 주문 목록을 조회합니다.
+        결과를 제너레이터(Generator)로 반환하여 메모리 효율적으로 스트리밍 처리합니다.
+        인덱스 캐싱 전 : 135.6092초 소요
+        인덱스 캐싱 후  0.1738초 소요
+        """
+        with db.engine.connect() as connection:
+            sql = text(
+                """
+                SELECT
+                    o.orderId, o.orderDow, o.orderHour, o.createdAt,
+                    oi.reordered,
+                    p.productId,
+                    p.productName
+                FROM (
+                    SELECT DISTINCT oi2.order_id
+                    FROM OrderItem oi2
+                    WHERE oi2.productId = :product_id
+                    LIMIT :limit
+                ) AS limited_orders
+                JOIN Orders o ON o.orderId = limited_orders.order_id
+                JOIN OrderItem oi ON oi.order_id = o.orderId
+                JOIN Product p ON p.productId = oi.productId
+                WHERE oi.productId != :product_id
+                ORDER BY o.createdAt DESC
+                LIMIT :limit
+                """
+            )
+            
+            # 이 Result 객체는 데이터베이스 커서를 통해 필요할 때마다 데이터를 가져옵니다.
+            result_proxy = connection.execute(sql, {"product_id": product_id, "limit": limit})
+            
+            column_names = None
+            # Result 객체를 직접 순회하며 각 로우를 하나씩 처리합니다.
+            for row in result_proxy:
+                # 컬럼 이름은 첫 번째 로우가 들어올 때 한 번만 가져옵니다.
+                if column_names is None:
+                    column_names = row._fields 
+                
+                # 각 로우(튜플 형태)를 딕셔너리로 변환하여 호출자에게 yield합니다.
+                # yield는 함수 실행을 일시 중지하고 값을 반환하며, 다음 요청 시 중지된 지점부터 다시 시작합니다.
+                yield dict(zip(column_names, row))
