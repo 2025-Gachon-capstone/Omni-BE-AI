@@ -3,7 +3,7 @@ from flasgger import Swagger
 from neomodel import config as neomodel_config
 
 from ..utils import db
-from ..routes import prompt_routes, order_routes, upload_routes, test_routes
+from ..routes import *
 
 
 from ..config import config, get_swagger_config, get_swagger_template  # 이 시점에 config.{PROFILE}.py가 로딩됨
@@ -36,5 +36,6 @@ def create_app():
     app.register_blueprint(order_routes)
     app.register_blueprint(upload_routes)
     app.register_blueprint(test_routes)
+    app.register_blueprint(product_routes)
 
     return app
