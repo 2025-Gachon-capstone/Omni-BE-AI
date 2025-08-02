@@ -9,6 +9,29 @@ from src.app.utils.gemini import post_gemini
 class ProductService:
 
     @staticmethod
+    def get_products_by_sponsor_id(sponsor_id: int) -> list[dict]:
+        """
+        특정 스폰서 ID에 해당하는 상품 목록을 조회합니다.
+        """
+        try:
+            products = MysqlProductRepository.get_products_by_sponsor_id(sponsor_id)
+            return {
+                "isSuccess": True,
+                "code": "SUCCESS",
+                "result": {"products": products},
+                "timestamp": ts()
+            }, 200
+        except Exception as e:
+            print(f"[ERROR] 상품 목록 조회 중 예외 발생:\n {e}")
+            return {
+                "isSuccess": False,
+                "code": "SERVER-ERR 500",
+                "message": f"Flask 서버 에러: {e}",
+                "timestamp": ts(),
+            }, 500      
+        
+
+    @staticmethod
     def get_product_orders_statiscis(product_id: int) -> tuple[str, int]:
         """
         특정 상품 ID에 해당하는 주문 통계 정보를 조회합니다.
@@ -72,7 +95,7 @@ class ProductService:
             return {
                 "isSuccess": True,
                 "code": "SUCCESS",
-                "data": statistics,
+                "result": statistics,
                 "timestamp": ts(),
             }, 200
 

@@ -18,3 +18,15 @@ class MysqlProductRepository:
                 return result[0]
             else:
                 ValueError(f"상품 ID {product_id}에 해당하는 상품이 없습니다.")   
+
+    @staticmethod
+    def get_products_by_sponsor_id(sponsor_id: int) -> list[dict]:
+        """
+        특정 스폰서 ID에 해당하는 상품 목록을 조회합니다.
+        """
+        with db.engine.connect() as connection:
+            sql = text(
+                "SELECT p.productId, p.productName FROM Product p WHERE sponsor_id = :sponsor_id"
+            )
+            result = connection.execute(sql, {"sponsor_id": sponsor_id}).fetchall()
+            return [dict(row._mapping) for row in result]

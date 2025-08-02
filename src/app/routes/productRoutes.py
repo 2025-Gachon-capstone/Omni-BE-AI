@@ -82,3 +82,63 @@ kst = pytz.timezone('Asia/Seoul')
 })
 def get_product_statistics(productId: int):
     return ProductService.get_product_orders_statiscis(productId)
+
+@product_routes.route("", methods=["GET"])
+@swag_from({
+    'tags': ['Product'],
+    'summary': '상품 목록 조회',
+    'description': '요청한 협찬사의 상품 목록을 조회합니다.',
+    'parameters': [
+        {
+            'name': 'sponsorId',
+            'in': 'query',
+            'type': 'integer',
+            'required': True,
+            'description': '조회할 협찬사 ID'
+        },
+    ],
+    'responses': {
+        '200': {
+            'description': '상품 목록 조회 성공',
+            'schema': {
+                'type': 'object',
+                'properties': {
+                    'isSuccess': {'type': 'boolean', 'example': True},
+                    'code': {'type': 'string', 'example': 'FLASK-200'},
+                    'message': {'type': 'string', 'example': '상품 목록 조회 성공'},
+                    'timestamp': {'type': 'string', 'format': 'date-time'},
+                    'userMessageId': {'type': 'string', 'example': 'msg-001'},
+                    'result': {
+                        'type': 'object',
+                        'properties': {
+                            'products': {
+                                'type': 'array',
+                                'items': {
+                                    'type': 'object',
+                                    'properties': {
+                                        'productId': {'type': 'integer', 'example': 12345},
+                                        'productName': {'type': 'string', 'example': '오이'}
+                                    }
+                                }
+                            },
+                            'report': {
+                                'type': 'string',
+                                'example': '총 10개의 상품이 등록되어 있습니다.'
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+})
+def get_products():
+    sponsor_id = request.args.get('sponsorId', type=int)
+    if not sponsor_id:
+        return {
+            "isSuccess": False,
+            "code": "INVALID-REQUEST",
+            "message": "sponsorId 파라미터가 필요합니다.",
+            "timestamp": datetime.datetime.now(kst).isoformat()
+        }, 400
+    return ProductService.get_products_by_sponsor_id(sponsor_id)
