@@ -68,31 +68,30 @@ class MysqlOrderRepository:
             return str(member_id), order_info, order_items, products
     
     @staticmethod
-    def get_orders_by_product_id_old(product_id: int, limit: int =100) -> list:
+    def get_orders_by_product_id(product_id: int, limit: int =100) -> list:
         """
         특정 상품 ID에 해당하는 주문 목록을 조회합니다.
-        기존 fetchall 방식 (모두 로드): 115.8872초 소요
+        인덱스 캐싱 전: 115.8872초 소요 => 인덱스 캐싱 후 : 0.1 ~ 0.2862초 소요
         """
         with db.engine.connect() as connection:
             sql = text(
-                """
+               """
                 SELECT
                     o.orderId, o.orderDow, o.orderHour, o.createdAt,
-                    oi.reordered,
-                    p.productId,
-                    p.productName
-                FROM (
-                    SELECT DISTINCT oi2.order_id
-                    FROM OrderItem oi2
-                    WHERE oi2.productId = :product_id
+                    order_info.reordered,
+                    p.productId, p.productName
+                FROM Orders o
+                JOIN (
+                    SELECT
+                        oi.order_id,
+                        oi.reordered
+                    FROM OrderItem oi
+                    WHERE oi.productId = :product_id
+                    ORDER BY oi.order_id DESC
                     LIMIT :limit
-                ) AS limited_orders
-                JOIN Orders o ON o.orderId = limited_orders.order_id
-                JOIN OrderItem oi ON oi.order_id = o.orderId
-                JOIN Product p ON p.productId = oi.productId
-                WHERE oi.productId != :product_id
-                ORDER BY o.createdAt DESC
-                LIMIT :limit
+                ) AS order_info ON o.orderId = order_info.order_id
+                JOIN Product p ON p.productId = :product_id
+                ORDER BY o.createdAt DESC;
                 """
             )
             result = connection.execute(sql, {"product_id": product_id, "limit": limit}).fetchall()            
@@ -101,33 +100,32 @@ class MysqlOrderRepository:
             return [dict(row._mapping) for row in result]
         
     @staticmethod
-    def get_orders_by_product_id(product_id: int, limit: int =100) -> Generator[Dict[str, Any], None, None]:
+    def get_orders_by_product_id_new(product_id: int, limit: int =100) -> Generator[Dict[str, Any], None, None]:
         """
         특정 상품 ID에 해당하는 주문 목록을 조회합니다.
         결과를 제너레이터(Generator)로 반환하여 메모리 효율적으로 스트리밍 처리합니다.
         인덱스 캐싱 전 : 135.6092초 소요
-        인덱스 캐싱 후  0.1738초 소요
+        인덱스 캐싱 후  0.3021초 소요
         """
         with db.engine.connect() as connection:
             sql = text(
                 """
                 SELECT
                     o.orderId, o.orderDow, o.orderHour, o.createdAt,
-                    oi.reordered,
-                    p.productId,
-                    p.productName
-                FROM (
-                    SELECT DISTINCT oi2.order_id
-                    FROM OrderItem oi2
-                    WHERE oi2.productId = :product_id
+                    order_info.reordered,
+                    p.productId, p.productName
+                FROM Orders o
+                JOIN (
+                    SELECT
+                        oi.order_id,
+                        oi.reordered
+                    FROM OrderItem oi
+                    WHERE oi.productId = :product_id
+                    ORDER BY oi.order_id DESC
                     LIMIT :limit
-                ) AS limited_orders
-                JOIN Orders o ON o.orderId = limited_orders.order_id
-                JOIN OrderItem oi ON oi.order_id = o.orderId
-                JOIN Product p ON p.productId = oi.productId
-                WHERE oi.productId != :product_id
-                ORDER BY o.createdAt DESC
-                LIMIT :limit
+                ) AS order_info ON o.orderId = order_info.order_id
+                JOIN Product p ON p.productId = :product_id
+                ORDER BY o.createdAt DESC;
                 """
             )
             
