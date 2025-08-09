@@ -35,72 +35,72 @@ class Neo4jMemberRepository:
                 setattr(member, field, value)
         member.save()
 
-    
     @staticmethod
-    def find_members_by_predict_order(product_ids: list[str], top_k: int = 5, batch_size: int = 100) -> dict:
-        """
-        match_count 상/중/하 그룹을 실시간 유지하며 유사 회원 탐색
-        """
-        ScoredMember = namedtuple("ScoredMember", ["score", "member_id", "metadata"])
-        MATCH_THRESHOLD = 2  # 유의미하다고 간주할 최소 유사도
-
-        offset = 0
-        high_heap = []  # min-heap → 낮은 점수 제거
-        low_heap = []   # max-heap → 높은 점수 제거 (음수 사용)
-
-        while True:
-            query = """
-            MATCH (m:Member)
-            WHERE m.predict_order_list IS NOT NULL
-            WITH m,
-                size([p IN $product_ids WHERE p IN m.predict_order_list]) AS match_count
-            WHERE match_count > 0
-            RETURN m.member_id AS member_id,
-                m.metadata AS metadata,
-                m.predict_order_list AS predict_order_list,
-                match_count
-            ORDER BY match_count DESC
-            SKIP $skip LIMIT $limit
+    def find_buyers_by_product_ids(
+        product_ids: list[str],
+        top_k: int = 10,
+        min_total_orders: int = 10,
+    ) -> dict:
+        try:
+            # 1) 전체 최소 주문건수 확인 (최근 since_days 내)
+            count_query = """
+            MATCH (o:Order)-[:CONTAINS]->(p:Product)
+            WHERE p.product_id IN $product_ids
+            RETURN count(o) AS total_orders
             """
-            results, _ = db.cypher_query(query, {
-                "skip": offset,
-                "limit": batch_size,
-                "product_ids": product_ids
-            })
+            params = {"product_ids": product_ids}
+            results, _ = db.cypher_query(count_query, params)
+            total_orders = results[0][0] if results else 0
+            if total_orders < min_total_orders:
+                return {
+                    "total_orders": total_orders,
+                    "by_product": []
+                }
 
-            if not results:
-                print(f"조회된 결과가 없습니다. 총 조회된 오프셋: {offset}")
-                break
+            # 2) 상품별 최근 구매자 Top-K (주문 수 기준)
+            #    - o.paid_at 필드는 프로젝트 스키마에 맞게 조정하세요 (예: ordered_at 등)
+            topk_query = """
+            MATCH (m:Member)-[:ORDERED]->(o:Order)-[:CONTAINS]->(p:Product)
+            WHERE p.product_id IN $product_ids
+            WITH p.product_id AS pid, m, count(o) AS order_count
+            ORDER BY pid, order_count DESC
+            WITH pid, collect({m: m, order_count: order_count})[0..$top_k] AS top_members
+            RETURN pid, top_members
+            """
+            params.update({"top_k": top_k})
+            results, _ = db.cypher_query(topk_query, params)
 
-            for member_id, metadata, predict_order_list, match_count in results:
-                print(f"🔍 {member_id} - 유사도: {match_count}, 주문예측: {predict_order_list}")
-                scored = ScoredMember(match_count, member_id, metadata)
+            by_product = []
+            for row in results:
+                pid = row[0]
+                top_members = row[1] or []
+                members_pack = []
+                for pack in top_members:
+                    # pack = {"m": <node>, "order_count": int}
+                    member_node = pack.get("m")
+                    oc = pack.get("order_count", 0)
+                    if member_node is None:
+                        continue
+                    members_pack.append({
+                        "member": Neo4jMember.inflate(member_node),
+                        "order_count": int(oc),
+                    })
+                by_product.append({
+                    "product_id": pid,
+                    "members": members_pack
+                })
 
-                if match_count > MATCH_THRESHOLD:
-                    # High group
-                    heapq.heappush(high_heap, (match_count, scored))
-                    if len(high_heap) > top_k:
-                        heapq.heappop(high_heap)
-                else:
-                    # Low group
-                    heapq.heappush(low_heap, (-match_count, scored))
-                    if len(low_heap) > top_k:
-                        heapq.heappop(low_heap)                         
+            return {
+                "total_orders": int(total_orders),
+                "by_product": by_product
+            }
 
-            offset += batch_size
+        except Exception as e:
+            print(f"[Neo4jMemberRepository] 최근 구매자 조회 실패: {e}")
+            return {"total_orders": 0, "by_product": []}
 
-        # 정렬 후 결과 구성
-        high_group = [{"member_id": s.member_id, "metadata": s.metadata, "score": s.score}
-                    for _, s in sorted(high_heap, key=lambda x: -x[0])]
-        low_group = [{"member_id": s.member_id, "metadata": s.metadata, "score": s.score}
-                    for _, s in sorted(low_heap, key=lambda x: x[0])]
-
-        print(f"🔝 상위 {top_k}: {[m['member_id'] for m in high_group]}")
-        print(f"🔻 하위 {top_k}: {[m['member_id'] for m in low_group]}")
-
-        return high_group, low_group
         
-        
+    
     @staticmethod
     def find_members_by_metadata_vector(metadata_vectors: list[list[float]], top_k: int = 5) -> list:
         """

@@ -25,8 +25,7 @@ class PromptService:
         '''
 
         user_content:str = request["content"]
-        benefit = request["benefit"]
-        benefit["benefitId"] = benefit_id
+        product_name = request["productName"]
 
         try:
             # 사용자 메시지 먼저 DB에 저장
@@ -38,7 +37,7 @@ class PromptService:
             user_message_id = user_content_obj.chat_message_id
 
             # AI 응답 생성
-            ai_content, ai_error = PromptService.chat_gemini(benefit, user_content)
+            ai_content, ai_error = PromptService.chat_gemini(product_name, user_content)
             if ai_error:
                 error_response = {
                     "isSuccess": False,
@@ -200,14 +199,13 @@ class PromptService:
             }, 500
     
     @staticmethod
-    def chat_gemini(benefit, user_message: str) -> str:
+    def chat_gemini(product_name, user_message: str) -> str:
         """
         협찬 혜택 정보와 사용자의 채팅 메시지를 기반으로 프롬프트를 생성
         """
         try:
             print(f'//-----RAG start----//')
             # 1. 상품 임베딩
-            product_name = benefit.get("targetProduct", "")
             name_vector = get_text_embedding(product_name)
             print(f'step1: {product_name}')
             
@@ -220,83 +218,103 @@ class PromptService:
             print(f'step2: {matched_product_names}')
 
             product_ids = [p.product_id for p in matched_products]
-            # 3. product_ids를 기준으로 predict_order_list 안에 해당 product가 포함된 Member 탐색
-            high, low = Neo4jMemberRepository.find_members_by_predict_order(product_ids, top_k=5)
-            if not high and not low:
-                return None, "AI-404: 관련 상품을 주문하려는 고객을 찾을 수 없습니다."
-        
+            # 3) (변경) 상품별 구매자 메타데이터 조회
+            grouped = Neo4jMemberRepository.find_buyers_by_product_ids(
+                product_ids=product_ids, top_k=10, min_total_orders=10
+            )
+            if grouped.get("total_orders", 0) < 10:
+                return None, "AI-404: 유사 상품의 구매내역이 10건 미만입니다."
 
-            # 4. 고객 metadata 수집
-            context_chunks = []
-            for group_label, group in [("구매가능성이 높은 구매자", high), ("구매가능성이 낮은 구매자", low)]:
-                group_meta = [
-                    f"[{group_label}] {m['metadata']}"
-                    for m in group if m.get("metadata")
-                ]
-                if not group_meta:
-                    print(f"⚠️ {group_label} 그룹에 유효한 metadata 없음")
-                context_chunks.extend(group_meta)
+            # 4) 상품별 metadata 정리
+            grouped_context = []  # [{product_id, buyer_metas: [...]}, ...]
+            for bucket in grouped.get("by_product", []):
+                seen = set()
+                metas = []
+                for item in bucket.get("members", []):
+                    mem = item.get("member")
+                    if not mem:
+                        continue
+                    mid = getattr(mem, "member_id", None)
+                    meta = getattr(mem, "metadata", None)
+                    if not mid or not meta:
+                        continue
+                    if mid in seen:
+                        continue
+                    seen.add(mid)
+                    m = meta.strip()
+                    if m:
+                        metas.append(m)
+                if metas:
+                    grouped_context.append({
+                        "product_id": bucket.get("product_id"),
+                        "buyer_metas": metas
+                    })
 
-            if not context_chunks:
-                return None, "AI-404: 고객 설명이 없습니다."
+            if not grouped_context:
+                return None, "AI-404: 구매자 metadata가 없습니다."
 
-            # 7. 프롬프트 구성
-            prompt = PromptService.compose_rag_prompt(benefit, user_message, matched_product_names, context_chunks)
+            # 5) 프롬프트 구성 (상품별 섹션)
+            prompt = PromptService.compose_rag_buyers_by_similar_products(
+                user_message=user_message,
+                matched_products=matched_product_names,
+                grouped_context=grouped_context,
+                total_orders=grouped.get("total_orders", 0),
+            )
 
-            # 8. LLM 호출
+            # 6) LLM 호출
             answer, err = post_gemini(prompt)
             if err:
                 return None, err
             return answer, None
 
+
         except Exception as e:
             return None, f"AI-500: 예외 발생 - {e}"
     
     @staticmethod
-    def compose_rag_prompt(
-        benefit: dict, 
-        user_message: str,  
-        matched_products: list[str] = [], 
-        context_chunks: list[str]=[]
+    def compose_rag_buyers_by_similar_products(
+        user_message: str,
+        matched_products: list[str],          # 유사 상품명 리스트 (없으면 빈 리스트)
+        grouped_context: list[dict],          # [{ "product_id": str, "product_name": str|None, "buyer_metas": [str, ...] }, ...]
+        total_orders: int,                     # 유사 상품 전체 주문 수 (기간 제한 없음)       # 최근 대화 기록 위해 사용 (없으면 무시)
     ) -> str:
-        benefit_lines = []
-        if title := benefit.get("title"):
-            benefit_lines.append(f"[혜택명]: {title}")
-        if discount := benefit.get("discountRate"):
-            benefit_lines.append(f"[할인율]: {discount}%")
-        if target := benefit.get("targetMemberText"):
-            benefit_lines.append(f"[타겟 고객]: {target}")
-        if product := benefit.get("targetProductText"):
-            benefit_lines.append(f"[타겟 상품]: {product}")
+        """
+        목적:
+        - 협찬사가 '이 상품을 누가 사는지' 물으면,
+            해당 상품의 '유사 상품' 구매자 메타데이터를 상품별로 정리하여
+            요약/타겟팅 인사이트/카피/쿠폰 조건까지 제안하도록 지시.
+        """
 
-        benefit_str = "\n".join(benefit_lines)
-        customer_str = "\n".join(f"- {c}" for c in context_chunks)
-
+        # 1) 유사 상품 목록
         product_reasoning_str = ""
         if matched_products:
-            product_reasoning_str = (
-                "다음은 유사한 상품명으로 판단된 제품 목록입니다:\n"
-                + "\n".join(f"- {p}" for p in matched_products)
-            )
+            product_reasoning_str = "유사 상품 목록:\n" + "\n".join(f"- {p}" for p in matched_products)
 
+        # 2) 상품별 구매자 메타데이터 블록
+        blocks = []
+        for g in grouped_context:
+            pname = (g.get("product_name") or g.get("product_id") or "상품").strip()
+            metas = g.get("buyer_metas", []) or []
+            if not metas:
+                continue
+            metas_str = "\n".join(f"- {m}" for m in metas)
+            blocks.append(f"[{pname}] 구매자 메타데이터 샘플:\n{metas_str}")
+        grouped_str = "\n\n".join(blocks) if blocks else "※ 유사 상품별 구매자 메타데이터가 비어있습니다."
+
+        # 3) 최종 프롬프트
         prompt = (
-            f"다음은 협찬사가 등록한 혜택 정보입니다:\n\n{benefit_str}\n\n"
+            "다음 정보를 바탕으로, 질의한 상품과 유사한 상품들의 **실제 구매자 특성**을 상품별로 요약하고 "
+            "이 특성을 근거로 타겟팅 인사이트와 실행 가능한 마케팅 제안을 제시하세요.\n\n"
             f"{product_reasoning_str}\n\n"
-            f"이 혜택과 관련된 유사 고객들의 성향 요약:\n\n{customer_str}\n\n"
-            f"위 정보를 고려하여, 유사 상품과 고객 성향을 기반으로 한 설명과 함께 아래의 사용자의 질문에 답변해주세요.:\n\n"
-            f"{user_message}"
+            f"[데이터 근거] 유사 상품 전체 주문 수: {total_orders}건 (기간 제한 없음)\n\n"
+            f"{grouped_str}\n\n"
+            "요청사항:\n"
+            f"{user_message}\n\n"
+            "작성 지침:\n"
+            "- 각 상품별로 아래 순서로 작성:\n"
+            "  1) 핵심 구매자 특징 요약(연령대/성별/지역/구매 패턴/채널/시간대 등, 개인정보 금지)\n"
+            "- 문단은 \\n 로 구분하고, 한글 4줄 정도로 불필요한 서론은 최소화하세요.\n"
         )
-
-        recent_messages = MysqlChatMessageRepository.get_messages(benefit.get("benefitId"), limit=10)
-        history_str = "\n".join([f"[{m['author']}]: {m['content']}" for m in recent_messages])
-
-        prompt += (
-            f"\n\n추가로, 사용자의 최근 대화 기록은 다음과 같습니다:\n"
-            f"{history_str}\n\n"
-            f"이전 문맥과 일관되게 답변해주세요."
-            f"문단이 나뉘는 부분은 문단 기호(\\n)로 구분해주세요.\n"
-        )
-        print(f'prompt: {prompt}')
-
 
         return prompt
+
