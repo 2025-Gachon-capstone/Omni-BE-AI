@@ -2,6 +2,7 @@ import time
 from typing import Counter
 from src.app.repositories.mysql.OrderRepository import MysqlOrderRepository
 from src.app.repositories.mysql.ProductRepository import MysqlProductRepository
+from src.app.repositories.neo4j.OrderRepository import Neo4jOrderRepository
 from src.app.utils import ts
 from src.app.utils.gemini import post_gemini
 
@@ -39,7 +40,7 @@ class ProductService:
         try:
             # 1. 기존 fetchall 방식 시간 측정
             start_time = time.time()
-            orders = MysqlOrderRepository.get_orders_by_product_id(product_id)
+            orders = Neo4jOrderRepository.get_orders_by_product_id(product_id)
 
             product_name = MysqlProductRepository.get_product_name_by_id(product_id)
             if not orders:
@@ -54,7 +55,7 @@ class ProductService:
             order_hour_counter = Counter()
             order_dow_counter = Counter()
             product_counter = Counter()
-            created_dates = []
+            # created_dates = []
 
             for row in orders:
                 reordered_counter[row["reordered"]] += 1
@@ -62,7 +63,7 @@ class ProductService:
                 order_dow_counter[row["orderDow"]] += 1
                 key = (row["productId"], row["productName"])
                 product_counter[key] += 1
-                created_dates.append(row['createdAt'])
+                # created_dates.append(row['createdAt'])
             
             end_time = time.time()
             print(f" generatable 방식 (모두 로드): {end_time - start_time:.4f}초 소요")
@@ -78,8 +79,8 @@ class ProductService:
                 ],
                 "report": f"{sum(reordered_counter.values())}건의 주문에서 분석되었습니다.",
                 "period": {
-                    "min": created_dates[0].strftime("%Y-%m-%d") if created_dates else None,
-                    "max": created_dates[-1].strftime("%Y-%m-%d") if created_dates else None
+                    "min": ts(),
+                    "max": ts()
                 }
             }
 

@@ -201,3 +201,39 @@ class Neo4jOrderRepository:
             if deleted < batch_size:
                 break
 
+    @staticmethod
+    def get_orders_by_product_id(product_id: str, limit: int = 100) -> List[Neo4jOrder]:
+        """
+        특정 상품 ID에 해당하는 주문 목록을 조회합니다.
+        """
+        query = """
+       // 제약/인덱스
+        MATCH (p:Product {product_id:$pid})<-[:CONTAINS]-(o:Order)
+        WITH p, o
+        ORDER BY toInteger(o.order_id) DESC
+        LIMIT $limit
+        MATCH (o)-[r:CONTAINS]->(q:Product)
+        WHERE q.product_id <> $pid
+        RETURN
+            o.order_id            AS orderId,
+            o.order_dow           AS orderDow,
+            o.order_hour_of_day   AS orderHour,
+            // 타겟 상품의 재주문 여부가 필요하면:
+            EXISTS( (o)-[:CONTAINS {reordered:true}]->(p) ) AS reordered,
+            q.product_id          AS productId,
+            q.name                AS productName
+        ORDER BY toInteger(orderId) DESC, r.add_to_cart_order ASC;
+
+        """
+        rows, _ = db.cypher_query(query, {"pid": str(product_id), "limit": limit})
+        return [
+        {
+            "orderId":     row[0],
+            "orderDow":    row[1],
+            "orderHour":   row[2],
+            "reordered":   row[3],
+            "productId":   row[4],
+            "productName": row[5],
+        }
+        for row in rows
+    ]
