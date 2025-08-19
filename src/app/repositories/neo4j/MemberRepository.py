@@ -1,5 +1,6 @@
 from collections import namedtuple
 import heapq
+from typing import Any, Dict, Iterable, List, Set
 
 import numpy as np
 from ...models import Member as Neo4jMember
@@ -183,3 +184,42 @@ class Neo4jMemberRepository:
         except Exception as e:
             print(f"Error in get_members_without_metadata: {e}")
             return None
+    
+    @staticmethod
+    def get_member_ids_missing_embedding(page_size: int = 5000) -> Iterable[List[str]]:
+        """
+        Member 중 node_embedding이 없거나 NULL인 member_id를 페이지 단위로 반환
+        member_id는 StringProperty이므로 str로 다룹니다.
+        """
+        skip = 0
+        q = """
+        MATCH (m:Member)
+        WHERE m.node_embedding IS NULL OR coalesce(m.node_embedding, []) = []
+        WITH m.member_id AS member_id
+        ORDER BY member_id
+        SKIP $skip LIMIT $limit
+        RETURN member_id
+        """
+        while True:
+            rows, _ = db.cypher_query(q, {"skip": skip, "limit": page_size})
+            ids = [r[0] for r in rows]  # member_id (str)
+            if not ids:
+                break
+            yield ids
+            skip += page_size
+
+    @staticmethod
+    def upsert_member_embeddings(rows: List[Dict[str, Any]]):
+        """
+        rows: [{member_id: str, vector: List[float]}]
+        """
+        if not rows:
+            return
+        q = """
+        UNWIND $rows AS row
+        MERGE (m:Member {member_id: row.member_id})
+        SET m.node_embedding = row.vector,
+            m.updatedAt = datetime()
+        """
+        db.cypher_query(q, {"rows": rows})
+

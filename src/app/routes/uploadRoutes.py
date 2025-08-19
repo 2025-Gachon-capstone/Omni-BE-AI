@@ -1,13 +1,96 @@
-from flask import Blueprint, request
+from flask import Blueprint, current_app, request
 from flasgger import swag_from
 from datetime import datetime
 
+from src.app.services.EmbeddingService import EmbeddingService
 from src.app.services.OrderService import OrderService
 
 from ..services import UploadService
 from ..services.UploadService import UploadService
 
 upload_routes = Blueprint('upload_routes', __name__, url_prefix='/flask/v1/upload')
+
+# uploadRoutes.py
+from types import SimpleNamespace
+from src.app.services.EmbeddingService import EmbeddingService
+
+def _get_embedding_service() -> EmbeddingService:
+    container = current_app.extensions["container"]  # create_app에서 넣어둠
+
+    # 기존에 넣어둔 값이 있으면 사용, 없거나 필수 필드 없으면 기본값 구성
+    bert_args = current_app.config.get("bert_args")
+    if not bert_args or not hasattr(bert_args, "max_seq_length"):
+        bert_args = SimpleNamespace(
+            # 🔧 EmbeddingService/post_missing_user_embeddings에서 사용하는 값들 기본 제공
+            max_seq_length=100,      # 본문 100 길이 시퀀스
+            user_token_prefix="USR_",# [USR_<id>] 프리픽스
+            device="cpu",            # 필요하다면 "cuda"
+            batch_size=16            # 기본 배치
+        )
+
+    return EmbeddingService(
+        vocab=container.vocab,
+        predictor=container.predictor,
+        args=bert_args
+    )
+
+@upload_routes.post("/members/embeddings/missing")
+@swag_from({
+    'tags': ['Service-Upload'],
+    'summary': 'node_embedding 없는 멤버만 임베딩 생성 후 Neo4j 저장',
+    'description': (
+        'Neo4j의 Member 중 node_embedding이 비어있는 멤버만 대상으로, '
+        'MySQL에서 각 멤버의 최신 100개 구매를 가져와 [USR_<id>] + 본문 100 길이 시퀀스로 임베딩합니다. '
+        '결과 벡터는 Member.node_embedding에 저장합니다.'
+    ),
+    'parameters': [
+        {'name': 'limit_users', 'in': 'query', 'type': 'integer', 'required': False, 'description': '최대 처리 멤버 수 상한'},
+        {'name': 'page_size', 'in': 'query', 'type': 'integer', 'required': False, 'description': '멤버 페이징(조회) 크기, 기본 2048'},
+        {'name': 'embed_batch', 'in': 'query', 'type': 'integer', 'required': False, 'description': '임베딩 배치 크기, 기본 16(CPU/노트북 권장)'},
+        {'name': 'save_page_size', 'in': 'query', 'type': 'integer', 'required': False, 'description': 'Neo4j 업서트 슬라이스 크기, 기본 1000'},
+        {'name': 'dry_run', 'in': 'query', 'type': 'boolean', 'required': False, 'description': 'True면 저장하지 않고 카운트만 반환'}
+    ],
+    'responses': {
+        '200': {
+            'description': '처리 통계',
+            'schema': {
+                'type': 'object',
+                'properties': {
+                    'isSuccess': {'type': 'boolean', 'example': True},
+                    'code': {'type': 'string', 'example': 'SUCCESS'},
+                    'result': {
+                        'type': 'object',
+                        'properties': {
+                            'toProcess': {'type': 'integer', 'example': 2048},
+                            'produced': {'type': 'integer', 'example': 2048},
+                            'skippedEmpty': {'type': 'integer', 'example': 10},
+                            'failed': {'type': 'array', 'items': {'type': 'integer'}}
+                        }
+                    },
+                    'timestamp': {'type': 'string', 'format': 'date-time'}
+                }
+            }
+        }
+    }
+})
+def create_missing_member_embeddings():
+    svc = _get_embedding_service()
+
+    limit_users     = request.args.get('limit_users', default=None, type=int)
+    page_size       = request.args.get('page_size', default=2048, type=int)
+    embed_batch     = request.args.get('embed_batch', default=16, type=int)      # ✅ 기본 16
+    save_page_size  = request.args.get('save_page_size', default=1000, type=int)
+    dry_run         = request.args.get('dry_run', default=False, type=lambda v: str(v).lower() in ('1','true','yes'))
+
+    # EmbeddingService.post_missing_user_embeddings 시그니처에 맞춰 전달
+    resp, status = svc.post_missing_user_embeddings(
+        limit_users=limit_users,
+        page_size=page_size,
+        batch_embed=embed_batch,
+        save_page_size=save_page_size,
+        dry_run=dry_run
+    )
+    return resp, status
 
 @upload_routes.route("", methods=["GET"])
 @swag_from({

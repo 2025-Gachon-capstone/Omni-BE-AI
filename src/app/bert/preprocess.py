@@ -93,8 +93,8 @@ def rows_to_instances_sliding(
     user_key: str = "userId",
     hour_key: str = "orderHour",
     item_reordered_key: Optional[str] = None,
-    aisle_key: Optional[str] = None,
-    dept_key: Optional[str] = None,
+    aisle_key: str = "aisle",
+    dept_key: str = "dept",
     window_size: int = 100,
     overlap_ratio: float = 0.6,
     drop_last_partial: bool = True,
@@ -160,7 +160,7 @@ def rows_to_instances_sliding(
             uid = first if all(u == first for u in window_users) else None
 
         # build_instance가 [CLS]를 붙이고, max_seq_length에서 스페셜 토큰만큼 자동 보정
-        instances.append(build_instance(uid, sub_tranxs, vocab, args, add_cls=True))
+        instances.append(build_instance(uid, sub_tranxs, vocab, args))
         start += stride
 
     return instances
@@ -178,7 +178,7 @@ def split_all_orders_to_subsequences(
     """
     Instacart(식료품) 데이터 전체를 하나의 시간축으로 보고 subsequence로 분할
     """
-    # 권장: args.max_seq_length는 window_size + 1(=CLS) + (include_user?1:0)로 세팅
+    # 권장: args.max_seq_length는 window_size + (include_user?1:0)로 세팅
     return rows_to_instances_sliding(
         rows, vocab, args,
         include_user=include_user,

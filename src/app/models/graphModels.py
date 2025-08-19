@@ -89,5 +89,7 @@ class Member(StructuredNode):
 
     metadata_vector = ArrayProperty(FloatProperty(),  serialize=False)
     predict_order_list = ArrayProperty(FloatProperty(),  serialize=False) # 아직 구매하지 않은 다음 구매내역의 벡터화
+    node_embedding = ArrayProperty(FloatProperty(), serialize=False) # 그래프 세이지 임베딩 저장
 
     ordered = RelationshipTo('Order', 'ORDERED')
+    updatedd_at = StringProperty(serialize=False)  # 마지막 업데이트 시간
