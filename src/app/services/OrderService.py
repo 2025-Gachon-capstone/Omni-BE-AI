@@ -42,35 +42,29 @@ class OrderService:
             try:
                 neo4j_member = Neo4jMemberRepository.create_member_if_not_exist(member_id)
                 
-                order_info_normalized = {
-                    # 우선은 0~1로 정규화, 숫자가 클수록 편차가 모델에 미치는 영향이 커짐.
-                    "orderId": order_info.get("orderId"),
-                    "daysSincePrior": min_max_normalize(order_info.get("daysSincePrior"), 0, 1),
-                    "orderDow": min_max_normalize(order_info.get("orderDow"), 0, 1),
-                    "orderHour": min_max_normalize(order_info.get("orderHour"), 0, 1),
-                    "orderCount": min_max_normalize(order_info.get("orderCount"), 0, 1),
-                    "predict_order_list": [0.1] #TODO: graphSAGE 예측
-                }
+                # order_info_normalized = {
+                #     # 우선은 0~1로 정규화, 숫자가 클수록 편차가 모델에 미치는 영향이 커짐.
+                #     "orderId": order_info.get("orderId"),
+                #     "daysSincePrior": min_max_normalize(order_info.get("daysSincePrior"), 0, 1),
+                #     "orderDow": min_max_normalize(order_info.get("orderDow"), 0, 1),
+                #     "orderHour": min_max_normalize(order_info.get("orderHour"), 0, 1),
+                #     "orderCount": min_max_normalize(order_info.get("orderCount"), 0, 1),
+                #     "predict_order_list": [0.1] #TODO: graphSAGE 예측
+                # }
                 
                 previous_order = Neo4jOrderRepository.get_previous_order(neo4j_member, order_id)
                 new_order = Neo4jOrderRepository.create_order_if_not_exist(
                         order_info=order_info, 
-                        order_info_normalized=order_info_normalized
+                        # order_info_normalized=order_info_normalized
                 )
                 safe_connect(neo4j_member.ordered, new_order)
 
                 for item, product in zip(order_items, products):
-                    product_name=product.get("productName")
-                    category=product.get("category")
-                    print(f'name: {product_name}')
-                    print(f'category: {category}')
-                    product_name_vector = get_text_embedding(product.get("productName"))
-                    product_category_vector = get_text_embedding(product.get("category"))
+                    # product_name_vector = get_text_embedding(product.get("productName"))
+                    # product_category_vector = get_text_embedding(product.get("category"))
 
                     new_product = Neo4jProductRepository.create_product_if_not_exist(
                         product,
-                        product_name_vector,
-                        product_category_vector
                     )
                     safe_connect(
                         rel_manager=new_order.contains,
@@ -81,10 +75,10 @@ class OrderService:
 
                 # 이전 주문 찾아서 next_order_list 저장 및 연결
                 if previous_order:
-                    new_product_embedding = [0.1] #TODO: graphSAGE 임베딩
-                    Neo4jOrderRepository.update_previous_order(previous_order, new_order, new_product_embedding)
+                    # new_product_embedding = [0.1] #TODO: graphSAGE 임베딩
+                    Neo4jOrderRepository.update_previous_order(previous_order, new_order)
                 
-                Neo4jMemberRepository.update_member_fields(neo4j_member, {"predict_order_list": order_info_normalized.get("predict_order_list")})
+                # Neo4jMemberRepository.update_member_fields(neo4j_member, {"predict_order_list": order_info_normalized.get("predict_order_list")})
                 metadata = OrderService.update_member_metadata_by_gemini(neo4j_member, new_order)
 
                 body = {
@@ -155,12 +149,12 @@ class OrderService:
         if message:
             raise ConnectionError(message)
 
-        metadata_vector = get_text_embedding(metadata)
-        print(f'metadata_vector_len: {len(metadata_vector)}')
+        # metadata_vector = get_text_embedding(metadata)
+        # print(f'metadata_vector_len: {len(metadata_vector)}')
 
         Neo4jMemberRepository.update_member_fields(member, {
             "metadata": metadata,
-            "metadata_vector": metadata_vector
+            # "metadata_vector": metadata_vector
         })
 
         return metadata

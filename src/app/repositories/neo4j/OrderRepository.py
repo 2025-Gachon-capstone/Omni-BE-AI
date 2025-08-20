@@ -7,9 +7,8 @@ from neomodel import db
 class Neo4jOrderRepository:
 
     @staticmethod
-    def create_order_if_not_exist(order_info: dict, order_info_normalized: dict) -> Neo4jOrder:
+    def create_order_if_not_exist(order_info: dict) -> Neo4jOrder:
         print(f'order_info: {order_info}')
-        print(f'order_info_normalized: {order_info_normalized}')
 
         order = Neo4jOrder.nodes.get_or_none(order_id=order_info['orderId'])
         print(f'order: {order}')
@@ -23,12 +22,12 @@ class Neo4jOrderRepository:
                 order_hour_of_day=order_info.get("orderHour"),
                 order_number=order_info.get("orderCount"),
                 
-                days_since_prior_order_norm=order_info_normalized.get("daysSincePrior"),
-                order_dow_norm=order_info_normalized.get("orderDow"),
-                order_hour_of_day_norm=order_info_normalized.get("orderHour"),
-                order_number_norm=order_info_normalized.get("orderCount"),
+                # days_since_prior_order_norm=order_info_normalized.get("daysSincePrior"),
+                # order_dow_norm=order_info_normalized.get("orderDow"),
+                # order_hour_of_day_norm=order_info_normalized.get("orderHour"),
+                # order_number_norm=order_info_normalized.get("orderCount"),
 
-                predict_order_list=order_info_normalized.get("predict_order_list")
+                # predict_order_list=order_info_normalized.get("predict_order_list")
             ).save()
         return order
 
@@ -74,13 +73,11 @@ class Neo4jOrderRepository:
             return None
 
     @staticmethod
-    def update_previous_order(previous_order: Neo4jOrder, new_order: Neo4jOrder, next_order_list=None):
+    def update_previous_order(previous_order: Neo4jOrder, new_order: Neo4jOrder):
         print(f'//------------test-----------------//')
-        print(f'previous_order_next_order_list: {next_order_list}')
         print(f'previous_order: {previous_order.eval_set}')
-        previous_order.next_order_list = next_order_list
+        previous_order.next_order_list = new_order
         previous_order.eval_set = 'PRIOR'
-        print(f'previous_order_next_order_list: {next_order_list}')
         print(f'previous_order: {previous_order.eval_set}')
 
         safe_connect(previous_order.next_to, new_order)
