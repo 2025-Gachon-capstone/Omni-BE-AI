@@ -133,7 +133,7 @@ class BenefitService:
             print(f"[post_benefits] 전체 처리 완료 - 총 처리 시간: {total_elapsed}초")
 
             # 6) Spring 서버로 요청 전송
-            spring_benefit_url = f"{config.BENEFIT_SERVER_ADDRESS}/card/v2/benefits?sponsorId={sponsor_id}"
+            spring_sponsor_url = f"{config.SPONSOR_SERVER_ADDRESS}/card/v2/benefits?sponsorId={sponsor_id}"
 
             try:
                 body = {
@@ -146,7 +146,7 @@ class BenefitService:
                     "status":body.get("status") # PENDING, COMPLETED   
                 }
                             
-                response = requests.post(spring_benefit_url, json=body)
+                response = requests.post(spring_sponsor_url, json=body)
                 if response.status_code != 200:
                     return response.json(), 500
                 
