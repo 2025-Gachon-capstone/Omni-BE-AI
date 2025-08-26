@@ -52,7 +52,7 @@ def create_benefits_bp(benefit_service):
                                 'type': 'string',
                                 'format': 'date',
                                 'description': '캠페인 시작 일 (시간 없음, 한국 시간대))',
-                                'example': '2025-08-20T09:00:00+09:00'
+                                'example': '2025-08-20'
                             },
                             'endDate': {
                                 'type': 'string',

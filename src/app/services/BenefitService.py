@@ -4,6 +4,7 @@ import numpy as np
 import time
 from flask import Request
 
+from src.app.repositories.mysql.BenefitRepository import MysqlBenefitRepository
 from src.app.repositories.mysql.ProductRepository import MysqlProductRepository
 from ..config import config
 import requests
@@ -180,8 +181,10 @@ class BenefitService:
                 if response.status_code == 200:
                     return response.json(), 200
                 else:
+                    MysqlBenefitRepository.delete_benefit_by_id(benefitId)
                     return response.json(), response.status_code
             except requests.exceptions.RequestException as e:
+                MysqlBenefitRepository.delete_benefit_by_id(benefitId)
                 print(f"Spring 서버 통신 실패: {e}")
                 return {
                     "isSuccess": False,
