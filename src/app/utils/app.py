@@ -1,6 +1,8 @@
 from flask import Flask, request
 from flasgger import Swagger
 from neomodel import config as neomodel_config
+from src.app.container.service_container import ServiceContainer
+from src.app.routes.benefitRoutes import create_benefits_bp
 
 from ..utils import db
 from ..routes import *
@@ -11,10 +13,22 @@ from ..config import config, get_swagger_config, get_swagger_template  # 이 시
 def create_app():
     app = Flask(__name__)
     app.config.from_object(config)
+    # BERT
+    app.config.update({
+        "VOCAB_PATH": "src/app/bert/checkpoints/vocab.0000",
+        "PREDICTOR_THREADS": 4,
+        # flasgger 옵션들 필요 시 추가
+    })
+
+    container = ServiceContainer(app.config)
+    app.extensions = getattr(app, "extensions", {})
+    app.extensions["container"] = container
+
     # MYSQL
     app.config['SQLALCHEMY_DATABASE_URI'] = f"mysql+mysqlconnector://{config.DB_USER}:{config.DB_PASSWORD}@{config.DB_HOST}/{config.DB_NAME}"
     app.config['SQLALCHEMY_DATABASE_URI'] += f"?ssl_disabled=True&use_unicode=True&time_zone=Asia/Seoul" # useSSL처럼 사용 금지. mysql-connector-python 지원 문법 사용 
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    
     # NEO4J
     neomodel_config.DATABASE_URL = f'bolt://{config.NEO4J_USER}:{config.DB_PASSWORD}@{config.NEO4J_HOST}:{config.NEO4J_PORT}'
 
@@ -30,12 +44,13 @@ def create_app():
      # ✅ SQLAlchemy 초기화
     db.init_app(app)
 
-    swagger = Swagger(app, template=get_swagger_template(), config=get_swagger_config()) 
+    Swagger(app, template=get_swagger_template(), config=get_swagger_config()) 
     
     app.register_blueprint(prompt_routes)
     app.register_blueprint(order_routes)
     app.register_blueprint(upload_routes)
     app.register_blueprint(test_routes)
     app.register_blueprint(product_routes)
+    app.register_blueprint(create_benefits_bp(container.benefit_service))
 
     return app

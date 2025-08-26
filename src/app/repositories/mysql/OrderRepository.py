@@ -1,4 +1,6 @@
-from typing import Any, Dict, Generator
+from typing import Any, Dict, List
+from flask import json
+import numpy as np
 from sqlalchemy import text
 from ...utils import db
 
@@ -66,79 +68,101 @@ class MysqlOrderRepository:
                 print(f'product: {product}, order: {order_item}')
 
             return str(member_id), order_info, order_items, products
-    
-    @staticmethod
-    def get_orders_by_product_id(product_id: int, limit: int =100) -> list:
-        """
-        특정 상품 ID에 해당하는 주문 목록을 조회합니다.
-        인덱스 캐싱 전: 115.8872초 소요 => 인덱스 캐싱 후 : 0.1 ~ 0.2862초 소요
-        """
-        with db.engine.connect() as connection:
-            sql = text(
-               """
-                SELECT
-                    o.orderId, o.orderDow, o.orderHour, o.createdAt,
-                    order_info.reordered,
-                    p.productId, p.productName
-                FROM Orders o
-                JOIN (
-                    SELECT
-                        oi.order_id,
-                        oi.reordered
-                    FROM OrderItem oi
-                    WHERE oi.productId = :product_id
-                    ORDER BY oi.order_id DESC
-                    LIMIT :limit
-                ) AS order_info ON o.orderId = order_info.order_id
-                JOIN Product p ON p.productId = :product_id
-                ORDER BY o.createdAt DESC;
-                """
-            )
-            result = connection.execute(sql, {"product_id": product_id, "limit": limit}).fetchall()            
 
-            # 각 row를 딕셔너리로 변환
-            return [dict(row._mapping) for row in result]
-        
     @staticmethod
-    def get_orders_by_product_id_new(product_id: int, limit: int =100) -> Generator[Dict[str, Any], None, None]:
+    def get_infered_orders_by_product_id(
+        product_id: int,
+        limit: int = 100,
+        reordered_ratio: float = 0.6  # 항상 전달됨 (None 가정 없음)
+    ) -> List[Dict]:
         """
-        특정 상품 ID에 해당하는 주문 목록을 조회합니다.
-        결과를 제너레이터(Generator)로 반환하여 메모리 효율적으로 스트리밍 처리합니다.
-        인덱스 캐싱 전 : 135.6092초 소요
-        인덱스 캐싱 후  0.3021초 소요
+        target product가 포함된 주문을 최신순으로 보돼,
+        reordered_ratio 비율에 따라 '재구매:첫구매' 주문 수를 분할해서 뽑은 뒤,
+        해당 주문에서 '같이 구매된 상품' 라인을 펼쳐 반환한다.
+        
+        - 부족한 쪽이 있으면 보충하지 않음(이후, 데이터 복제로 보충).
+        - 반환 컬럼: orderId, orderDow, orderHour, reordered(아이템 단위), productId, aisle, department
+        - oi2.productId <> :pid 로 타깃 상품 라인은 제외.
         """
-        with db.engine.connect() as connection:
-            sql = text(
-                """
-                SELECT
-                    o.orderId, o.orderDow, o.orderHour, o.createdAt,
-                    order_info.reordered,
-                    p.productId, p.productName
-                FROM Orders o
-                JOIN (
-                    SELECT
-                        oi.order_id,
-                        oi.reordered
-                    FROM OrderItem oi
-                    WHERE oi.productId = :product_id
-                    ORDER BY oi.order_id DESC
-                    LIMIT :limit
-                ) AS order_info ON o.orderId = order_info.order_id
-                JOIN Product p ON p.productId = :product_id
-                ORDER BY o.createdAt DESC;
-                """
+        # 안전 클램프 (0~1)
+        r = float(reordered_ratio)
+        if r < 0.0: r = 0.0
+        if r > 1.0: r = 1.0
+
+        re_limit    = int(round(limit * r))
+        first_limit = int(limit) - re_limit
+
+        sql = text("""
+            WITH
+            re_orders AS (
+                SELECT DISTINCT oi.order_id
+                FROM OrderItem oi
+                WHERE oi.productId = :pid
+                  AND oi.reordered = 1
+                ORDER BY oi.order_id DESC
+                LIMIT :re_limit
+            ),
+            first_orders AS (
+                SELECT DISTINCT oi.order_id
+                FROM OrderItem oi
+                WHERE oi.productId = :pid
+                  AND oi.reordered = 0
+                ORDER BY oi.order_id DESC
+                LIMIT :first_limit
+            ),
+            target_orders AS (
+                SELECT order_id FROM re_orders
+                UNION ALL
+                SELECT order_id FROM first_orders
             )
-            
-            # 이 Result 객체는 데이터베이스 커서를 통해 필요할 때마다 데이터를 가져옵니다.
-            result_proxy = connection.execute(sql, {"product_id": product_id, "limit": limit})
-            
-            column_names = None
-            # Result 객체를 직접 순회하며 각 로우를 하나씩 처리합니다.
-            for row in result_proxy:
-                # 컬럼 이름은 첫 번째 로우가 들어올 때 한 번만 가져옵니다.
-                if column_names is None:
-                    column_names = row._fields 
-                
-                # 각 로우(튜플 형태)를 딕셔너리로 변환하여 호출자에게 yield합니다.
-                # yield는 함수 실행을 일시 중지하고 값을 반환하며, 다음 요청 시 중지된 지점부터 다시 시작합니다.
-                yield dict(zip(column_names, row))
+            SELECT
+                o.orderId                 AS orderId,
+                o.orderDow                AS orderDow,
+                o.orderHour               AS orderHour,
+                oi2.reordered             AS reordered,     -- 아이템 단위 플래그
+                p2.productId              AS productId,     -- 같이 산 상품
+                p2.sponsor_id             AS aisle,         -- 모델 feature: aisle (스키마에 맞게 사용)
+                pc2.productCategoryId     AS dept     -- 모델 feature: department
+            FROM target_orders t
+            JOIN Orders o          ON o.orderId    = t.order_id
+            JOIN OrderItem oi2     ON oi2.order_id = t.order_id
+            JOIN Product p2        ON p2.productId = oi2.productId
+            LEFT JOIN ProductCategory pc2 ON pc2.productCategoryId = p2.product_category_id
+            WHERE oi2.productId <> :pid               -- 타깃 상품 제외
+            ORDER BY o.orderId DESC
+        """)
+
+        with db.engine.connect() as con:
+            rows = con.execute(sql, {
+                "pid": int(product_id),
+                "re_limit": int(re_limit),
+                "first_limit": int(first_limit),
+            }).fetchall()
+
+        return [dict(r._mapping) for r in rows]
+
+    @staticmethod
+    def fetch_recent_products_by_member(member_id: int, limit: int = 100) -> List[Dict[str, Any]]:
+        """
+        해당 유저의 최신 구매상품을 최신순으로 최대 limit개 반환.
+        필요한 컬럼: productId(필수), orderHour(선택), sponsor_id(선택), category_id(선택), count_bucket(선택)
+        """
+        sql = text("""
+            SELECT
+                oi.productId            AS productId,
+                COALESCE(o.orderHour,0) AS orderHour,
+                COALESCE(p.sponsor_id,0)  AS aisle,
+                COALESCE(p.product_category_id,0) AS department
+            FROM Orders o
+            JOIN OrderItem oi ON oi.order_id = o.orderId
+            LEFT JOIN Product p ON p.productId = oi.productId
+            WHERE o.memberId = :mid
+            ORDER BY o.orderId DESC, oi.orderItemId ASC
+            LIMIT :lim
+        """)
+        with db.engine.connect() as conn:
+            # .mappings().all() → 각 Row를 dict-like로 반환
+            rows = conn.execute(sql, {"mid": int(member_id), "lim": int(limit)}).mappings().all()
+
+        # 이미 dict 형태이므로 바로 리스트로 변환
+        return [dict(r) for r in rows]
