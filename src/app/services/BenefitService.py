@@ -3,6 +3,8 @@ from typing import List, Dict, Any
 import numpy as np
 import time
 from flask import Request
+
+from src.app.repositories.mysql.ProductRepository import MysqlProductRepository
 from ..config import config
 import requests
 from src.app.repositories.neo4j.MemberRepository import Neo4jMemberRepository
@@ -45,6 +47,7 @@ class BenefitService:
                         "message": "targetProductId가 필요합니다.", "timestamp": ts()}, 400
 
             print(f"[post_benefits] targetProductId={target_product_id}, excluded_ids={excluded_product_ids}")
+            targt_product_name = MysqlProductRepository.get_product_name_by_id(int(target_product_id))
 
             # 1) MySQL 조회
             t0 = time.time()
@@ -142,7 +145,7 @@ class BenefitService:
                     "startDate":body.get("startDate"),
                     "endDate":body.get("endDate"),
                     "discountRate": body.get("discountRate"),  # 기본값: 10%
-                    "targetProduct": body.get("targetProduct"),  # 행사(타겟) 상품 ID
+                    "targetProduct": targt_product_name,  # 행사(타겟) 상품명
                     "amount":body.get("amount"),  # 발행할 총 쿠폰 수량
                     "status":body.get("status") # PENDING, COMPLETED   
                 }
