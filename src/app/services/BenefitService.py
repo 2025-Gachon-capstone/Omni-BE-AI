@@ -167,7 +167,7 @@ class BenefitService:
                     "timestamp": ts(),
                 }, 500
             
-            spring_card_url = f"{config.CARD_SERVER_ADDRESS}/card/v1/cardBenefits?sponsorId={sponsor_id}"
+            spring_user_url = f"{config.USER_SERVER_ADDRESS}/user/v1/memberBenefit"
 
             body = {
                 "benefitId": benefitId,
@@ -177,7 +177,7 @@ class BenefitService:
 
 
             try:
-                response = requests.post(spring_card_url, json=body)
+                response = requests.post(spring_user_url, json=body)
                 if response.status_code == 200:
                     return response.json(), 200
                 else:
