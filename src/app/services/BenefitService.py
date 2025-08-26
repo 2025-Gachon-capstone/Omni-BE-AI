@@ -155,7 +155,7 @@ class BenefitService:
                 if response.status_code != 200:
                     return response.json(), response.status_code
                 
-                benefitId = response.json().get("benefitId")
+                benefitId = response.json().get("result", {}).get("benefitId")
                 
             except requests.exceptions.RequestException as e:
                 print(f"Spring 서버 통신 실패: {e}")
