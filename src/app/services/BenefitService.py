@@ -141,8 +141,8 @@ class BenefitService:
                     "title": body.get("title"),
                     "startDate":body.get("startDate"),
                     "endDate":body.get("endDate"),
-                    "discount_rate": body.get("discountRate"),  # 기본값: 10%
-                    "target_product": body.get("targetProduct"),  # 행사(타겟) 상품 ID
+                    "discountRate": body.get("discountRate"),  # 기본값: 10%
+                    "targetProduct": body.get("targetProduct"),  # 행사(타겟) 상품 ID
                     "amount":body.get("amount"),  # 발행할 총 쿠폰 수량
                     "status":body.get("status") # PENDING, COMPLETED   
                 }
@@ -154,6 +154,7 @@ class BenefitService:
                 benefitId = response.json().get("benefitId")
                 
             except requests.exceptions.RequestException as e:
+                print(f"Spring 서버 통신 실패: {e}")
                 return {
                     "isSuccess": False,
                     "code": "NETWORK-ERR",
@@ -175,6 +176,7 @@ class BenefitService:
                 else:
                     return response.json(), 500
             except requests.exceptions.RequestException as e:
+                print(f"Spring 서버 통신 실패: {e}")
                 return {
                     "isSuccess": False,
                     "code": "NETWORK-ERR",
