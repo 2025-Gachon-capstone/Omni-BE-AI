@@ -79,7 +79,7 @@ def create_benefits_bp(benefit_service):
                             'status': {
                                 'type': 'string',
                                 'description': '상태값 (BEFORE, ONGOING)',
-                                'example': 'PENDING',
+                                'example': 'BEFORE',
                                 'enum': ['BEFORE', 'ONGOING']
                             }
                         },
