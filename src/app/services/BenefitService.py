@@ -149,10 +149,11 @@ class BenefitService:
                     "amount":body.get("amount"),  # 발행할 총 쿠폰 수량
                     "status":body.get("status") # PENDING, COMPLETED   
                 }
+                print(f"[post_benefits] Spring 스폰서 서버 요청 body: {body}")
                             
                 response = requests.post(spring_sponsor_url, json=body)
                 if response.status_code != 200:
-                    return response.json(), 500
+                    return response.json(), response.status_code
                 
                 benefitId = response.json().get("benefitId")
                 
@@ -171,13 +172,15 @@ class BenefitService:
                 "benefitId": benefitId,
                 "memberIdList": selected_member_ids,
             }
+            print(f"[post_benefits] Spring 카드 서버 요청 body: {body}")
+
 
             try:
                 response = requests.post(spring_card_url, json=body)
                 if response.status_code == 200:
                     return response.json(), 200
                 else:
-                    return response.json(), 500
+                    return response.json(), response.status_code
             except requests.exceptions.RequestException as e:
                 print(f"Spring 서버 통신 실패: {e}")
                 return {

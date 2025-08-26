@@ -50,15 +50,15 @@ def create_benefits_bp(benefit_service):
                             },
                             'startDate': {
                                 'type': 'string',
-                                'format': 'date-time',
-                                'description': '캠페인 시작 일시 (ISO8601)',
+                                'format': 'date',
+                                'description': '캠페인 시작 일 (시간 없음, 한국 시간대))',
                                 'example': '2025-08-20T09:00:00+09:00'
                             },
                             'endDate': {
                                 'type': 'string',
-                                'format': 'date-time',
-                                'description': '캠페인 종료 일시 (ISO8601)',
-                                'example': '2025-08-27T23:59:59+09:00'
+                                'format': 'date',
+                                'description': '캠페인 종료 일 (시간 없음, 한국 시간대)',
+                                'example': '2025-08-27'
                             },
                             'discountRate': {
                                 'type': 'number',
