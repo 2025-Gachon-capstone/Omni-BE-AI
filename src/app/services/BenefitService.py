@@ -134,7 +134,7 @@ class BenefitService:
             print(f"[post_benefits] 전체 처리 완료 - 총 처리 시간: {total_elapsed}초")
 
             # 6) Spring 서버로 요청 전송
-            spring_sponsor_url = f"{config.SPONSOR_SERVER_ADDRESS}/card/v2/benefits?sponsorId={sponsor_id}"
+            spring_sponsor_url = f"{config.SPONSOR_SERVER_ADDRESS}/sponsor/v2/benefits?sponsorId={sponsor_id}"
 
             try:
                 body = {
