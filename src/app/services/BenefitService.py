@@ -2,7 +2,8 @@
 from typing import List, Dict, Any
 import numpy as np
 import time
-from flask import Request, config
+from flask import Request
+from ..config import config
 import requests
 from src.app.repositories.neo4j.MemberRepository import Neo4jMemberRepository
 from src.app.utils import ts
