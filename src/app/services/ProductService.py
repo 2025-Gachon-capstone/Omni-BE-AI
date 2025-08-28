@@ -88,7 +88,15 @@ class ProductService:
             answer, err = post_gemini(prompt)
 
             if err:
-                return None, err
+                # err가 문자열이든 코드든 그대로 메시지에 넣어줌
+                return {
+                    "isSuccess": False,
+                    "code": "LLM-ERR",
+                    "message": f"리포트 생성 실패: {err}",
+                    "timestamp": ts(),
+                    # 실패해도 통계 자체는 계산돼 있으니 같이 내려주면 UI가 fallback 가능
+                    "result": statistics
+                }, 403  # Bad Gateway(업스트림 LLM 오류 성격)
             
             # answer를 report로 추가
             statistics["report"] = answer  
