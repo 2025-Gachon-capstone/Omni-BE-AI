@@ -1,9 +1,11 @@
+from typing import Any, Dict, List, Optional
 import pandas as pd
 from src.app.repositories.neo4j.OrderRepository import Neo4jOrderRepository 
 from src.app.models.graphModels import Member, Product, Order, Benefit, Sponsor
 from neomodel.exceptions import NeomodelException
 from neomodel import config as neomodel_config
 from src.app.config import config  # config/__init__.py에서 config 객체를 export함
+from src.app.repositories.neo4j.ProductRepository import Neo4jProductRepository
 from src.app.utils import ts
 from src.app.utils.text_embedding import get_text_embedding
 from src.app.utils.normalizaiton import min_max_normalize
@@ -33,6 +35,53 @@ def safe_int(val, default=0):
 # 이렇게 할 수 있는 이유는 neo4j는 관계형 DB이기에 테이블 스키마가 필요 없음
 
 class UploadService:
+    @staticmethod
+    def embed_product_name_batched(batch_size: int = 1000):
+        """
+        Product.name 임베딩을 배치로 생성/저장.
+        - use_keyset=True: product_id 기준 keyset pagination (권장)
+        - False: SKIP/LIMIT
+        """
+        try:
+            print(f"[INFO] Product name 임베딩 배치 생성 시작 (batch_size={batch_size})")
+
+            processed = 0
+            batch_idx = 1
+            last_pid_val: Optional[int] = None  # product_id (비교용)
+            while True:
+                batch = Neo4jProductRepository.fetch_products_batch_after(last_pid_val, batch_size)
+                if not batch:
+                    break
+
+                # batch: List[(product_id, name)]
+                payload: List[Dict[str, Any]] = []
+                for product_id, name in batch:
+                    vec = get_text_embedding(name, task="상품명 임베딩") if name else []
+                    payload.append({"product_id": product_id, "vec": vec})
+                    last_pid_val = product_id
+
+                Neo4jProductRepository.bulk_update_name_vectors(payload)
+
+                processed += len(batch)
+                print(f"[BATCH {batch_idx}] {len(batch)}개 처리 완료 / 누적 {processed}")
+                batch_idx += 1
+            
+            return {
+                "isSuccess": True,
+                "code": "NEO4J-200",
+                "message": f"임베딩 배치 처리 성공",
+                "timestamp": ts(),
+            }, 200
+
+        except Exception as e:
+            print(f"[ERROR] 임베딩 배치 처리 중 예외: {e}")
+            return {
+                "isSuccess": False,
+                "code": "NEO4J-ERR",
+                "message": f"임베딩 배치 처리 실패: {e}",
+                "timestamp": ts(),
+            }, 500
+        
     @staticmethod
     def setup_next_relations() -> bool:
         try:

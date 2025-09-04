@@ -214,15 +214,48 @@ def create_metadata():
             "isSuccess": False,
             "message": f"metadata 갱신 중 오류 발생: {str(e)}"
         }, 500
+    
+@upload_routes.patch("/products/name-vector")
+@swag_from({
+    'tags': ['Service-Upload'],
+    'summary': 'Product name_vector 일괄 갱신',
+    'description': 'Product의 name 필드를 기반으로 name_vector를 일괄 갱신합니다. 이미 name_vector가 존재하는 Product는 건너뜁니다.',
+    'responses': {
+        '200': {
+            'description': 'Product name_vector 갱신 완료 여부',
+            'schema': {
+                'type': 'object',
+                'properties': {
+                    'isSuccess': {'type': 'boolean', 'example': True},
+                    'message': {'type': 'string', 'example': 'Product name_vector 갱신 완료'}
+                }
+            }
+        },
+        '500': {
+            'description': 'Product name_vector 갱신 실패',
+            'schema': {
+                'type': 'object',
+                'properties': {
+                    'isSuccess': {'type': 'boolean', 'example': False},
+                    'message': {'type': 'string', 'example': 'Product name_vector 갱신 실패: 오류 메시지'}
+                }
+            }
+        }
+    }
+})
+def update_product_name_vector():
+    result = UploadService.embed_product_name_batched()
+    return result
+
 
 @upload_routes.patch("/orders/create-next-edges")
 @swag_from({
     'tags': ['Service-Upload'],
-    'summary': 'Order 간 NEXT 관계 생성',
+    'summary': 'Order 간 NEXT 간선 생성',
     'description': 'Neo4j에 저장된 각 멤버별 주문(Order) 간 시간 순서를 기준으로 NEXT 관계를 생성합니다.',
     'responses': {
         '200': {
-            'description': 'NEXT 관계 생성 완료 여부',
+            'description': 'NEXT 간선 생성 완료 여부',
             'schema': {
                 'type': 'object',
                 'properties': {
@@ -232,7 +265,7 @@ def create_metadata():
             }
         },
         '500': {
-            'description': 'NEXT 관계 생성 실패',
+            'description': 'NEXT 간선 생성 실패',
             'schema': {
                 'type': 'object',
                 'properties': {
